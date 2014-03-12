@@ -3,15 +3,15 @@ package org.jai.search.model;
 public class FacetResultEntry
 {
     private String term;
-    
+
     private long count;
-    
+
     public long getCount()
     {
         return count;
     }
 
-    public void setCount(long count)
+    public void setCount(final long count)
     {
         this.count = count;
     }
@@ -21,9 +21,8 @@ public class FacetResultEntry
         return term;
     }
 
-    public void setTerm(String term)
+    public void setTerm(final String term)
     {
         this.term = term;
     }
-
 }

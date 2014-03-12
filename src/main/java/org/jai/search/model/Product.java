@@ -1,42 +1,42 @@
 package org.jai.search.model;
 
+import org.apache.commons.lang.builder.ToStringBuilder;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.commons.lang.builder.ToStringBuilder;
-
 public class Product
 {
     private Long id;
-    
+
     private String title;
-    
+
     private String description;
-    
+
     private BigDecimal price;
-    
+
     private boolean soldOut;
-    
+
     private Date availableOn;
-    
+
     private float boostFactor = 1.0f;
-    
-    private List<String>  keywords = new ArrayList<String>();
-    
-    private List<Category> categories = new ArrayList<Category>(); 
-    
-    private List<ProductProperty> productProperties = new ArrayList<ProductProperty>();
-    
+
+    private List<String> keywords = new ArrayList<String>();
+
+    private final List<Category> categories = new ArrayList<Category>();
+
+    private final List<ProductProperty> productProperties = new ArrayList<ProductProperty>();
+
     private List<Specification> specifications = new ArrayList<Specification>();
-    
+
     public Long getId()
     {
         return id;
     }
 
-    public void setId(Long id)
+    public void setId(final Long id)
     {
         this.id = id;
     }
@@ -46,7 +46,7 @@ public class Product
         return title;
     }
 
-    public void setTitle(String title)
+    public void setTitle(final String title)
     {
         this.title = title;
     }
@@ -56,7 +56,7 @@ public class Product
         return description;
     }
 
-    public void setDescription(String description)
+    public void setDescription(final String description)
     {
         this.description = description;
     }
@@ -66,7 +66,7 @@ public class Product
         return keywords;
     }
 
-    public void setKeywords(List<String> keywords)
+    public void setKeywords(final List<String> keywords)
     {
         this.keywords = keywords;
     }
@@ -76,7 +76,7 @@ public class Product
         return price;
     }
 
-    public void setPrice(BigDecimal price)
+    public void setPrice(final BigDecimal price)
     {
         this.price = price;
     }
@@ -86,7 +86,7 @@ public class Product
         return soldOut;
     }
 
-    public void setSoldOut(boolean soldOut)
+    public void setSoldOut(final boolean soldOut)
     {
         this.soldOut = soldOut;
     }
@@ -96,12 +96,12 @@ public class Product
         return availableOn;
     }
 
-    public void setAvailableOn(Date availableOn)
+    public void setAvailableOn(final Date availableOn)
     {
         this.availableOn = availableOn;
     }
 
-    public void addKeyword(String keyword)
+    public void addKeyword(final String keyword)
     {
         keywords.add(keyword);
     }
@@ -111,35 +111,26 @@ public class Product
         return boostFactor;
     }
 
-    public void setBoostFactor(float boostFactor)
+    public void setBoostFactor(final float boostFactor)
     {
         this.boostFactor = boostFactor;
     }
 
-    public void addCategory(Category category)
+    public void addCategory(final Category category)
     {
         categories.add(category);
     }
-    
+
     public List<Category> getCategories()
     {
         return categories;
     }
-    
+
     @Override
     public String toString()
     {
-        return new ToStringBuilder(this)
-        .append(id)
-        .append(title)
-        .append(description)
-        .append(price)
-        .append(soldOut)
-        .append(availableOn)
-        .append(keywords)
-        .append(boostFactor)
-        .append(categories)
-        .toString();
+        return new ToStringBuilder(this).append(id).append(title).append(description).append(price).append(soldOut).append(availableOn)
+                .append(keywords).append(boostFactor).append(categories).toString();
     }
 
     public List<ProductProperty> getProductProperties()
@@ -147,7 +138,7 @@ public class Product
         return productProperties;
     }
 
-    public void addProductProperty(ProductProperty productProperty)
+    public void addProductProperty(final ProductProperty productProperty)
     {
         productProperties.add(productProperty);
     }
@@ -157,21 +148,21 @@ public class Product
         return specifications;
     }
 
-    public void setSpecifications(List<Specification> specifications)
+    public void setSpecifications(final List<Specification> specifications)
     {
         this.specifications = specifications;
     }
-    
-    public void addSpecification(Specification specification)
+
+    public void addSpecification(final Specification specification)
     {
         specifications.add(specification);
     }
 
-    public boolean categoryNameExists(String catName)
+    public boolean categoryNameExists(final String catName)
     {
-        for (Category category : categories)
+        for (final Category category : categories)
         {
-            if(category.getName().equals(catName))
+            if (category.getName().equals(catName))
             {
                 return true;
             }

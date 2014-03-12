@@ -7,9 +7,9 @@ import org.apache.commons.lang.builder.ToStringBuilder;
 public class ProductProperty
 {
     private Long id;
-    
+
     private String size;
-    
+
     private String color;
 
     public Long getId()
@@ -17,7 +17,7 @@ public class ProductProperty
         return id;
     }
 
-    public void setId(Long id)
+    public void setId(final Long id)
     {
         this.id = id;
     }
@@ -27,7 +27,7 @@ public class ProductProperty
         return color;
     }
 
-    public void setColor(String color)
+    public void setColor(final String color)
     {
         this.color = color;
     }
@@ -37,24 +37,24 @@ public class ProductProperty
         return size;
     }
 
-    public void setSize(String size)
+    public void setSize(final String size)
     {
         this.size = size;
     }
-    
+
     @Override
     public int hashCode()
     {
         return new HashCodeBuilder().append(size).append(color).hashCode();
     }
-    
+
     @Override
-    public boolean equals(Object obj)
+    public boolean equals(final Object obj)
     {
-        ProductProperty other = (ProductProperty) obj;
+        final ProductProperty other = (ProductProperty) obj;
         return new EqualsBuilder().append(size, other.size).append(color, other.color).isEquals();
     }
-    
+
     @Override
     public String toString()
     {

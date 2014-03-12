@@ -5,8 +5,8 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.List;
 
+import org.jai.search.config.ElasticSearchIndexConfig;
 import org.jai.search.data.SampleDataGeneratorService;
-import org.jai.search.model.ElasticSearchIndexConfig;
 import org.jai.search.model.Product;
 import org.jai.search.model.ProductSearchResult;
 import org.jai.search.model.SearchCriteria;

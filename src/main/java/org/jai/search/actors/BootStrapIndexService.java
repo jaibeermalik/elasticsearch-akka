@@ -1,5 +1,4 @@
-package org.jai.search.setup;
-
+package org.jai.search.actors;
 
 public interface BootStrapIndexService
 {

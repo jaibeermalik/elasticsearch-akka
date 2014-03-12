@@ -15,7 +15,7 @@ import java.util.concurrent.ExecutionException;
 
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoRequest;
 import org.elasticsearch.client.Client;
-import org.jai.search.model.ElasticSearchIndexConfig;
+import org.jai.search.config.ElasticSearchIndexConfig;
 import org.jai.search.model.Product;
 import org.jai.search.test.AbstractSearchJUnit4SpringContextTests;
 import org.junit.Test;

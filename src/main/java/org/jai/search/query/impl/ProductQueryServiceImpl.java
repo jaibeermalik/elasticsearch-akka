@@ -2,13 +2,21 @@ package org.jai.search.query.impl;
 
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
+import org.jai.search.client.SearchClientService;
+import org.jai.search.config.ElasticSearchIndexConfig;
+import org.jai.search.model.AutoSuggestionEntry;
+import org.jai.search.model.Category;
+import org.jai.search.model.FacetResult;
+import org.jai.search.model.FacetResultEntry;
+import org.jai.search.model.Product;
+import org.jai.search.model.ProductProperty;
+import org.jai.search.model.ProductSearchResult;
+import org.jai.search.model.SearchCriteria;
+import org.jai.search.model.SearchDocumentFieldName;
+import org.jai.search.model.SearchFacetName;
+import org.jai.search.model.Specification;
+import org.jai.search.query.ProductQueryService;
+import org.jai.search.util.SearchDateUtils;
 
 import org.apache.commons.lang.StringUtils;
 import org.elasticsearch.action.get.GetResponse;
@@ -48,323 +56,272 @@ import org.elasticsearch.search.suggest.Suggest.Suggestion.Entry.Option;
 import org.elasticsearch.search.suggest.SuggestBuilder;
 import org.elasticsearch.search.suggest.term.TermSuggestion;
 import org.elasticsearch.search.suggest.term.TermSuggestionBuilder;
-import org.jai.search.client.SearchClientService;
-import org.jai.search.model.AutoSuggestionEntry;
-import org.jai.search.model.Category;
-import org.jai.search.model.ElasticSearchIndexConfig;
-import org.jai.search.model.FacetResult;
-import org.jai.search.model.FacetResultEntry;
-import org.jai.search.model.Product;
-import org.jai.search.model.ProductProperty;
-import org.jai.search.model.ProductSearchResult;
-import org.jai.search.model.SearchCriteria;
-import org.jai.search.model.SearchDocumentFieldName;
-import org.jai.search.model.SearchFacetName;
-import org.jai.search.model.Specification;
-import org.jai.search.query.ProductQueryService;
-import org.jai.search.util.SearchDateUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-@Service(value="productQueryService")
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
+@Service(value = "productQueryService")
 public class ProductQueryServiceImpl implements ProductQueryService
 {
     @Autowired
     private SearchClientService searchClientService;
-    
+
     private static final Logger logger = LoggerFactory.getLogger(ProductQueryServiceImpl.class);
 
     @Override
-    public ProductSearchResult searchProducts(SearchCriteria searchCriteria)
+    public ProductSearchResult searchProducts(final SearchCriteria searchCriteria)
     {
-        QueryBuilder queryBuilder = getQueryBuilder(searchCriteria);
-
-        SearchRequestBuilder requestBuilder = getSearchRequestBuilder(searchCriteria.getIndexes(), 
-                                                                        searchCriteria.getDocumentTypes(), 
-                                                                        searchCriteria.getFrom(), 
-                                                                        searchCriteria.getSize());
+        final QueryBuilder queryBuilder = getQueryBuilder(searchCriteria);
+        final SearchRequestBuilder requestBuilder = getSearchRequestBuilder(searchCriteria.getIndexes(), searchCriteria.getDocumentTypes(),
+                searchCriteria.getFrom(), searchCriteria.getSize());
         requestBuilder.addFields(SearchDocumentFieldName.productQueryFields);
-        
-        if(searchCriteria.isRescoreOnSoldOut())
+        if (searchCriteria.isRescoreOnSoldOut())
         {
-            Rescorer rescorer = RescoreBuilder.queryRescorer(QueryBuilders.termQuery(SearchDocumentFieldName.SOLD_OUT.getFieldName(), false))
-                                               .setQueryWeight(1.0f) //default
-                                               .setRescoreQueryWeight(1.5f)
-                                               ;
+            final Rescorer rescorer = RescoreBuilder
+                    .queryRescorer(QueryBuilders.termQuery(SearchDocumentFieldName.SOLD_OUT.getFieldName(), false)).setQueryWeight(1.0f) // default
+                    .setRescoreQueryWeight(1.5f);
             requestBuilder.setRescorer(rescorer);
         }
-        
         if (searchCriteria.hasFilters())
         {
-            AndFilterBuilder andFilterBuilder = getFilterBuilderForSearchCriteria(searchCriteria);
+            final AndFilterBuilder andFilterBuilder = getFilterBuilderForSearchCriteria(searchCriteria);
             requestBuilder.setQuery(QueryBuilders.filteredQuery(queryBuilder, andFilterBuilder));
-        } else
+        }
+        else
         {
             requestBuilder.setQuery(queryBuilder);
         }
-
         if (!searchCriteria.isNoFacets() && searchCriteria.getFacets().size() > 0)
         {
             addFacets(searchCriteria, requestBuilder);
         }
-
-      //Add sorting
-        if(searchCriteria.getSortOrder() !=null)
+        // Add sorting
+        if (searchCriteria.getSortOrder() != null)
         {
-            //First on given field
-            requestBuilder.addSort(SortBuilders.fieldSort(SearchDocumentFieldName.AVAILABLE_DATE.getFieldName()).order(searchCriteria.getSortOrder()).missing("_last"));
-            //then on score based
+            // First on given field
+            requestBuilder.addSort(SortBuilders.fieldSort(SearchDocumentFieldName.AVAILABLE_DATE.getFieldName())
+                    .order(searchCriteria.getSortOrder()).missing("_last"));
+            // then on score based
             requestBuilder.addSort(SortBuilders.scoreSort());
         }
-
         logger.debug("Executing following search request:" + requestBuilder.internalBuilder().toString());
-        
-        SearchResponse searchResponse = requestBuilder.execute().actionGet();
-        
+        final SearchResponse searchResponse = requestBuilder.execute().actionGet();
         printSearchResponseForDebug(searchResponse);
-        
         return getProductSearchResults(searchResponse);
     }
-    
+
     @SuppressWarnings("unchecked")
     @Override
-    public Product getProduct(ElasticSearchIndexConfig config, Long productId)
+    public Product getProduct(final ElasticSearchIndexConfig config, final Long productId)
     {
-        GetResponse getResponse = searchClientService.getClient().prepareGet(config.getIndexAliasName(), config.getDocumentType(), String.valueOf(productId))
-                                                                 .setFields(SearchDocumentFieldName.productDocumentFields)
-                                                                 .get();
-        if(getResponse.isExists())
+        final GetResponse getResponse = searchClientService.getClient()
+                .prepareGet(config.getIndexAliasName(), config.getDocumentType(), String.valueOf(productId))
+                .setFields(SearchDocumentFieldName.productDocumentFields).get();
+        if (getResponse.isExists())
         {
-            Product product = new Product();
+            final Product product = new Product();
             product.setId(Long.valueOf(getResponse.getId()));
             product.setTitle(getResponse.getField(SearchDocumentFieldName.TITLE.getFieldName()).getValue().toString());
             product.setDescription(getResponse.getField(SearchDocumentFieldName.DESCRIPTION.getFieldName()).getValue().toString());
             product.setSoldOut(Boolean.valueOf(getResponse.getField(SearchDocumentFieldName.SOLD_OUT.getFieldName()).getValue().toString()));
-            product.setAvailableOn(SearchDateUtils.getFormattedDate(getResponse.getField(SearchDocumentFieldName.AVAILABLE_DATE.getFieldName()).getValue().toString()));
+            product.setAvailableOn(SearchDateUtils.getFormattedDate(getResponse
+                    .getField(SearchDocumentFieldName.AVAILABLE_DATE.getFieldName()).getValue().toString()));
             product.setKeywords(getListFieldValueOrNull(getResponse.getField(SearchDocumentFieldName.KEYWORDS.getFieldName())));
-            product.setPrice(BigDecimal.valueOf(Double.valueOf(getResponse.getField(SearchDocumentFieldName.PRICE.getFieldName()).getValue().toString())));
-            product.setBoostFactor(Float.valueOf(getResponse.getField(SearchDocumentFieldName.BOOSTFACTOR.getFieldName()).getValue().toString()));
-            
-            for (Object ListOfMapValues : getResponse.getField(SearchDocumentFieldName.CATEGORIES_ARRAY.getFieldName()).getValues())
+            product.setPrice(BigDecimal.valueOf(Double.valueOf(getResponse.getField(SearchDocumentFieldName.PRICE.getFieldName())
+                    .getValue().toString())));
+            product.setBoostFactor(Float.valueOf(getResponse.getField(SearchDocumentFieldName.BOOSTFACTOR.getFieldName()).getValue()
+                    .toString()));
+            for (final Object ListOfMapValues : getResponse.getField(SearchDocumentFieldName.CATEGORIES_ARRAY.getFieldName()).getValues())
             {
-                    for (final java.util.Map.Entry<String, String> entry : ((Map<String, String>)ListOfMapValues).entrySet())
+                for (final java.util.Map.Entry<String, String> entry : ((Map<String, String>) ListOfMapValues).entrySet())
+                {
+                    // Only main facet values should be set.key ending with a number.
+                    if (entry.getKey().matches("^.*.facet$"))
                     {
-                        //Only main facet values should be set.key ending with a number.
-                        if(entry.getKey().matches("^.*.facet$"))
-                        {
-                            product.addCategory(new Category(entry.getValue(), null, entry.getKey().split("\\.facet")[0]));
-                        }
+                        product.addCategory(new Category(entry.getValue(), null, entry.getKey().split("\\.facet")[0]));
+                    }
                 }
             }
-            
             return product;
         }
         return null;
     }
 
     @Override
-    public List<AutoSuggestionEntry> getAutoSuggestions(ElasticSearchIndexConfig config, String queryString)
+    public List<AutoSuggestionEntry> getAutoSuggestions(final ElasticSearchIndexConfig config, final String queryString)
     {
-        TermSuggestionBuilder suggesBuilder = SuggestBuilder.termSuggestion(SearchFacetName.AUTO_SUGGESTION.getCode())
-                                                             .field(SearchDocumentFieldName.KEYWORDS.getFieldName())
-                                                             .analyzer(config.getAutoSuggestionAnalyzerName())
-                                                             .size(20)
-                                                             .text(queryString)
-//                                                             .suggestMode("always")
-//                                                             .stringDistance("ngram")
-                                                             ;
-        
-//        CompletionSuggestionBuilder suggesBuilder = new CompletionSuggestionBuilder(SearchFacetName.AUTO_SUGGESTION.getCode())
-//                .field(SearchDocumentFieldName.KEYWORDS.getFieldName())
-//                .analyzer(config.getAutoSuggestionAnalyzerName())
-//                .size(20)
-//                .text(queryString)
-////                .stringDistance("ngram")
-//                ;
-        
-//        PhraseSuggestionBuilder suggesBuilder = SuggestBuilder.phraseSuggestion(SearchFacetName.AUTO_SUGGESTION.getCode())
-//                                                              .field(SearchDocumentFieldName.TITLE.getFieldName())
-//                                                              .analyzer(config.getAutoSuggestionAnalyzerName())
-//                                                              .size(10)
-//                                                              .text(queryString)
-//                                                              ;
-        
-        SuggestRequestBuilder addSuggestion = searchClientService.getClient().prepareSuggest(config.getIndexAliasName())
-                                        .addSuggestion(suggesBuilder);
-        
+        final TermSuggestionBuilder suggesBuilder = SuggestBuilder.termSuggestion(SearchFacetName.AUTO_SUGGESTION.getCode())
+                .field(SearchDocumentFieldName.KEYWORDS.getFieldName()).analyzer(config.getAutoSuggestionAnalyzerName()).size(20)
+                .text(queryString)
+        // .suggestMode("always")
+        // .stringDistance("ngram")
+        ;
+        // CompletionSuggestionBuilder suggesBuilder = new CompletionSuggestionBuilder(SearchFacetName.AUTO_SUGGESTION.getCode())
+        // .field(SearchDocumentFieldName.KEYWORDS.getFieldName())
+        // .analyzer(config.getAutoSuggestionAnalyzerName())
+        // .size(20)
+        // .text(queryString)
+        // // .stringDistance("ngram")
+        // ;
+        // PhraseSuggestionBuilder suggesBuilder = SuggestBuilder.phraseSuggestion(SearchFacetName.AUTO_SUGGESTION.getCode())
+        // .field(SearchDocumentFieldName.TITLE.getFieldName())
+        // .analyzer(config.getAutoSuggestionAnalyzerName())
+        // .size(10)
+        // .text(queryString)
+        // ;
+        final SuggestRequestBuilder addSuggestion = searchClientService.getClient().prepareSuggest(config.getIndexAliasName())
+                .addSuggestion(suggesBuilder);
         try
         {
-            logger.debug("Auto Suggestion request is {}", suggesBuilder.toXContent(jsonBuilder().startObject(), null).prettyPrint().string());
-        } catch (IOException e)
+            logger.debug("Auto Suggestion request is {}", suggesBuilder.toXContent(jsonBuilder().startObject(), null).prettyPrint()
+                    .string());
+        }
+        catch (final IOException e)
         {
-            //Do nothing  
+            // Do nothing
             logger.error("Error in to string", e);
         }
-
-        SuggestResponse suggestResponse = addSuggestion.get();
-        
+        final SuggestResponse suggestResponse = addSuggestion.get();
         logger.debug("Auto Suggestion response is {}", suggestResponse);
-        
-        List<AutoSuggestionEntry> suggestions = new ArrayList<AutoSuggestionEntry>();
-
-        if(suggestResponse !=null && suggestResponse.getSuggest() !=null && suggestResponse.getSuggest().getSuggestion(SearchFacetName.AUTO_SUGGESTION.getCode()) !=null)
+        final List<AutoSuggestionEntry> suggestions = new ArrayList<AutoSuggestionEntry>();
+        if (suggestResponse != null && suggestResponse.getSuggest() != null
+                && suggestResponse.getSuggest().getSuggestion(SearchFacetName.AUTO_SUGGESTION.getCode()) != null)
         {
-            for (org.elasticsearch.search.suggest.Suggest.Suggestion.Entry<? extends Option> suggestEntry : suggestResponse.getSuggest().getSuggestion(SearchFacetName.AUTO_SUGGESTION.getCode()).getEntries())
+            for (final org.elasticsearch.search.suggest.Suggest.Suggestion.Entry<? extends Option> suggestEntry : suggestResponse
+                    .getSuggest().getSuggestion(SearchFacetName.AUTO_SUGGESTION.getCode()).getEntries())
             {
-                for (Option option : suggestEntry.getOptions())
+                for (final Option option : suggestEntry.getOptions())
                 {
-                    int count = ((TermSuggestion.Entry.Option) option).getFreq();
-                    AutoSuggestionEntry autoSuggestionEntry = new AutoSuggestionEntry(option.getText().string(), count);
+                    final int count = ((TermSuggestion.Entry.Option) option).getFreq();
+                    final AutoSuggestionEntry autoSuggestionEntry = new AutoSuggestionEntry(option.getText().string(), count);
                     suggestions.add(autoSuggestionEntry);
                 }
             }
         }
-        
         return suggestions;
     }
-    
+
     @Override
-    public List<AutoSuggestionEntry> getAutoSuggestionsUsingTermsFacet(ElasticSearchIndexConfig config, String queryString)
+    public List<AutoSuggestionEntry> getAutoSuggestionsUsingTermsFacet(final ElasticSearchIndexConfig config, final String queryString)
     {
-     
-        List<AutoSuggestionEntry> autoSuggestEntries = new ArrayList<AutoSuggestionEntry>();
-        
-        SearchRequestBuilder searchRequestBuilder = searchClientService.getClient().prepareSearch(config.getIndexAliasName())
-                                                                                   .setTypes(config.getDocumentType())
-                                                                                    .setSize(0)
-                                                                                    .setQuery(QueryBuilders.matchAllQuery());
-        
-        TermsFacetBuilder termsFacetBuilder = FacetBuilders.termsFacet(SearchFacetName.AUTO_SUGGESTION.getCode());
-        
-        String[] fieldsArray = new String[SearchFacetName.autoSuggestionFields.size() + 1];
+        final List<AutoSuggestionEntry> autoSuggestEntries = new ArrayList<AutoSuggestionEntry>();
+        final SearchRequestBuilder searchRequestBuilder = searchClientService.getClient().prepareSearch(config.getIndexAliasName())
+                .setTypes(config.getDocumentType()).setSize(0).setQuery(QueryBuilders.matchAllQuery());
+        final TermsFacetBuilder termsFacetBuilder = FacetBuilders.termsFacet(SearchFacetName.AUTO_SUGGESTION.getCode());
+        final String[] fieldsArray = new String[SearchFacetName.autoSuggestionFields.size() + 1];
         SearchFacetName.autoSuggestionFields.toArray(fieldsArray);
-        fieldsArray[fieldsArray.length -1] = SearchDocumentFieldName.KEYWORDS.getFieldName();
-
+        fieldsArray[fieldsArray.length - 1] = SearchDocumentFieldName.KEYWORDS.getFieldName();
         termsFacetBuilder.fields(fieldsArray);
-        
-        String lowerCaseQueryString = queryString.toLowerCase();
-        String filteredSpecialCharsQueryString = escapeQueryChars(lowerCaseQueryString);
-        String matchingRegExString = filteredSpecialCharsQueryString + ".*";
-        
-        termsFacetBuilder.regex(matchingRegExString)
-                    .size(20)
-                    .order(ComparatorType.TERM);
-
+        final String lowerCaseQueryString = queryString.toLowerCase();
+        final String filteredSpecialCharsQueryString = escapeQueryChars(lowerCaseQueryString);
+        final String matchingRegExString = filteredSpecialCharsQueryString + ".*";
+        termsFacetBuilder.regex(matchingRegExString).size(20).order(ComparatorType.TERM);
         searchRequestBuilder.addFacet(termsFacetBuilder);
-        
         logger.debug("Auto Suggestion request is {}", searchRequestBuilder.internalBuilder().toString());
-        
-        SearchResponse searchResponse = searchRequestBuilder.get();
-        
+        final SearchResponse searchResponse = searchRequestBuilder.get();
         try
         {
-            logger.debug("Auto Suggestion response is {}", searchResponse.toXContent(jsonBuilder().startObject(), null).prettyPrint().string());
-        } catch (IOException e)
-        {
-            logger.error("Search response tostring error:",e);
+            logger.debug("Auto Suggestion response is {}", searchResponse.toXContent(jsonBuilder().startObject(), null).prettyPrint()
+                    .string());
         }
-        
-        Facets facets = searchResponse.getFacets();
-        for (Facet facet : facets)
+        catch (final IOException e)
         {
-            if(facet.getName().equals(SearchFacetName.AUTO_SUGGESTION.getCode()))
+            logger.error("Search response tostring error:", e);
+        }
+        final Facets facets = searchResponse.getFacets();
+        for (final Facet facet : facets)
+        {
+            if (facet.getName().equals(SearchFacetName.AUTO_SUGGESTION.getCode()))
             {
-                TermsFacet termsFacet = (TermsFacet) facet;
-                for (org.elasticsearch.search.facet.terms.TermsFacet.Entry entry : termsFacet.getEntries())
+                final TermsFacet termsFacet = (TermsFacet) facet;
+                for (final org.elasticsearch.search.facet.terms.TermsFacet.Entry entry : termsFacet.getEntries())
                 {
-                    AutoSuggestionEntry term = new AutoSuggestionEntry(entry.getTerm().string(), entry.getCount());
+                    final AutoSuggestionEntry term = new AutoSuggestionEntry(entry.getTerm().string(), entry.getCount());
                     autoSuggestEntries.add(term);
                 }
             }
         }
         return autoSuggestEntries;
     }
-    
-    @Override
-    public List<Product> findSimilarProducts(ElasticSearchIndexConfig config, String[] fields, Long productId)
-    {
-        MoreLikeThisRequestBuilder moreLikeThisRequestBuilder = searchClientService.getClient().prepareMoreLikeThis(config.getIndexAliasName(), config.getDocumentType(), String.valueOf(productId))
-                                                                                                .setField(fields)
-                                                                                                .setMinDocFreq(1)
-                                                                                                .setMinTermFreq(1)
-                                                                                                .setSearchSize(10)
-                                                                                                
-                                                                                                ;
-        
-        logger.debug("Executing following search request, fields {}", new Object[]{moreLikeThisRequestBuilder.request().fields()});
-        
-        SearchResponse searchResponse = moreLikeThisRequestBuilder.get();
 
+    @Override
+    public List<Product> findSimilarProducts(final ElasticSearchIndexConfig config, final String[] fields, final Long productId)
+    {
+        final MoreLikeThisRequestBuilder moreLikeThisRequestBuilder = searchClientService.getClient()
+                .prepareMoreLikeThis(config.getIndexAliasName(), config.getDocumentType(), String.valueOf(productId)).setField(fields)
+                .setMinDocFreq(1).setMinTermFreq(1).setSearchSize(10);
+        logger.debug("Executing following search request, fields {}", new Object[] { moreLikeThisRequestBuilder.request().fields() });
+        final SearchResponse searchResponse = moreLikeThisRequestBuilder.get();
         printSearchResponseForDebug(searchResponse);
-        
-        List<Product> products = new ArrayList<Product>();
-        for (SearchHit searchHit : searchResponse.getHits())
+        final List<Product> products = new ArrayList<Product>();
+        for (final SearchHit searchHit : searchResponse.getHits())
         {
-            Product product = new  Product();
-            
+            final Product product = new Product();
             product.setId(Long.valueOf(searchHit.getId()));
             product.setTitle(searchHit.getSource().get(SearchDocumentFieldName.TITLE.getFieldName()).toString());
-            product.setPrice(BigDecimal.valueOf(Double.valueOf(searchHit.getSource().get(SearchDocumentFieldName.PRICE.getFieldName()).toString())));
+            product.setPrice(BigDecimal.valueOf(Double.valueOf(searchHit.getSource().get(SearchDocumentFieldName.PRICE.getFieldName())
+                    .toString())));
             product.setSoldOut(Boolean.valueOf(searchHit.getSource().get(SearchDocumentFieldName.SOLD_OUT.getFieldName()).toString()));
-            
             products.add(product);
         }
         return products;
     }
-    
-    private AndFilterBuilder getFilterBuilderForSearchCriteria(SearchCriteria searchCriteria)
-    {
-        AndFilterBuilder andFilterBuilder = FilterBuilders.andFilter();
 
-        //process single select filters
-        for (java.util.Map.Entry<String, String> entry : searchCriteria.getSingleSelectFilters().entrySet())
+    private AndFilterBuilder getFilterBuilderForSearchCriteria(final SearchCriteria searchCriteria)
+    {
+        final AndFilterBuilder andFilterBuilder = FilterBuilders.andFilter();
+        // process single select filters
+        for (final java.util.Map.Entry<String, String> entry : searchCriteria.getSingleSelectFilters().entrySet())
         {
             andFilterBuilder.add(getBaseFilterBuilder(entry.getKey(), entry.getValue()));
         }
-
-        //process field value filters
+        // process field value filters
         // Processing logic for field values
-        List<Map<String, Object>> fieldValueFilters = searchCriteria.getFieldValueFilters();
-
-        if(fieldValueFilters.size() > 0)
+        final List<Map<String, Object>> fieldValueFilters = searchCriteria.getFieldValueFilters();
+        if (fieldValueFilters.size() > 0)
         {
-            //process multiple entries in or filter
+            // process multiple entries in or filter
             final OrFilterBuilder orFilterForFieldValueList = FilterBuilders.orFilter();
-            //processing of fieldValueFilters is following:
-            //each list of filter items containing in fieldValueFilters joins with 'OR'
-            //each filter item in list joins with 'AND'
-            for (Map<String, Object> filterItems : fieldValueFilters)
+            // processing of fieldValueFilters is following:
+            // each list of filter items containing in fieldValueFilters joins with 'OR'
+            // each filter item in list joins with 'AND'
+            for (final Map<String, Object> filterItems : fieldValueFilters)
             {
-                //process all entries in map in and operation.
-                AndFilterBuilder andFilterBuilderForFieldValueMapInList = FilterBuilders.andFilter();
-                for (Entry<String, Object> entry : filterItems.entrySet())
+                // process all entries in map in and operation.
+                final AndFilterBuilder andFilterBuilderForFieldValueMapInList = FilterBuilders.andFilter();
+                for (final Entry<String, Object> entry : filterItems.entrySet())
                 {
-                    //retrieve filter builder
-                    FilterBuilder filterBuilder = getTermFilter(entry.getKey(), String.valueOf(entry.getValue()));
-                    //add to and condition
+                    // retrieve filter builder
+                    final FilterBuilder filterBuilder = getTermFilter(entry.getKey(), String.valueOf(entry.getValue()));
+                    // add to and condition
                     andFilterBuilderForFieldValueMapInList.add(filterBuilder);
                 }
                 orFilterForFieldValueList.add(andFilterBuilderForFieldValueMapInList);
             }
             andFilterBuilder.add(orFilterForFieldValueList);
         }
-
-        //process multi select filters
-        for (java.util.Map.Entry<String, List<String>> entry : searchCriteria.getMultiSelectFilters().entrySet())
+        // process multi select filters
+        for (final java.util.Map.Entry<String, List<String>> entry : searchCriteria.getMultiSelectFilters().entrySet())
         {
-            //Empty list, continue to next one.
-            //Only process multi select other than specifications (resolution/memory)
-            if(entry.getValue().size() == 0 || entry.getKey().equals(SearchFacetName.SPECIFICATION_RESOLUTION.getCode())
-                                            || entry.getKey().endsWith(SearchFacetName.SPECIFICATION_MEMORY.getCode()))
+            // Empty list, continue to next one.
+            // Only process multi select other than specifications (resolution/memory)
+            if (entry.getValue().size() == 0 || entry.getKey().equals(SearchFacetName.SPECIFICATION_RESOLUTION.getCode())
+                    || entry.getKey().endsWith(SearchFacetName.SPECIFICATION_MEMORY.getCode()))
             {
                 continue;
             }
-
-            if(entry.getValue().size() > 1)
+            if (entry.getValue().size() > 1)
             {
-                //process multiple entries in or filter
+                // process multiple entries in or filter
                 final OrFilterBuilder orFilter = FilterBuilders.orFilter();
                 for (final String filterName : entry.getValue())
                 {
@@ -374,223 +331,221 @@ public class ProductQueryServiceImpl implements ProductQueryService
             }
             else
             {
-                //process single entry directly in and filter
+                // process single entry directly in and filter
                 andFilterBuilder.add(getBaseFilterBuilder(entry.getKey(), entry.getValue().get(0)));
             }
         }
-        
-        //process resolution/memory facets
-        andFilterBuilder.add(FilterBuilders.nestedFilter(SearchDocumentFieldName.SPECIFICATIONS.getFieldName(), getSpecificationsFacetFilterBuilder(searchCriteria)));
-        
-        
-        //process child product properties
-        if(searchCriteria.getProductProperties().size() > 0)
+        // process resolution/memory facets
+        andFilterBuilder.add(FilterBuilders.nestedFilter(SearchDocumentFieldName.SPECIFICATIONS.getFieldName(),
+                getSpecificationsFacetFilterBuilder(searchCriteria)));
+        // process child product properties
+        if (searchCriteria.getProductProperties().size() > 0)
         {
             FilterBuilder propertyFilterBuilder = null;
-            if(searchCriteria.getProductProperties().size() > 1)
+            if (searchCriteria.getProductProperties().size() > 1)
             {
-                OrFilterBuilder OrPropertyFilterBuilder1 = FilterBuilders.orFilter();
-                for (ProductProperty productProperty : searchCriteria.getProductProperties())
+                final OrFilterBuilder OrPropertyFilterBuilder1 = FilterBuilders.orFilter();
+                for (final ProductProperty productProperty : searchCriteria.getProductProperties())
                 {
-                    AndFilterBuilder andPropertyTermFilter = FilterBuilders.andFilter(FilterBuilders.termFilter(SearchDocumentFieldName.SIZE.getFieldName(), productProperty.getSize().toLowerCase()),
-                            FilterBuilders.termFilter(SearchDocumentFieldName.COLOR.getFieldName(), productProperty.getColor().toLowerCase()));
+                    final AndFilterBuilder andPropertyTermFilter = FilterBuilders
+                            .andFilter(FilterBuilders.termFilter(SearchDocumentFieldName.SIZE.getFieldName(), productProperty.getSize()
+                                    .toLowerCase()), FilterBuilders.termFilter(SearchDocumentFieldName.COLOR.getFieldName(),
+                                    productProperty.getColor().toLowerCase()));
                     OrPropertyFilterBuilder1.add(andPropertyTermFilter);
                 }
                 propertyFilterBuilder = OrPropertyFilterBuilder1;
             }
             else
             {
-                ProductProperty productProperty = searchCriteria.getProductProperties().get(0);
-                propertyFilterBuilder = FilterBuilders.andFilter(FilterBuilders.termFilter(SearchDocumentFieldName.SIZE.getFieldName(), productProperty.getSize()),
+                final ProductProperty productProperty = searchCriteria.getProductProperties().get(0);
+                propertyFilterBuilder = FilterBuilders.andFilter(
+                        FilterBuilders.termFilter(SearchDocumentFieldName.SIZE.getFieldName(), productProperty.getSize()),
                         FilterBuilders.termFilter(SearchDocumentFieldName.COLOR.getFieldName(), productProperty.getColor()));
             }
-            FilteredQueryBuilder filteredQueryBuilder = new FilteredQueryBuilder(QueryBuilders.matchAllQuery(), propertyFilterBuilder);
-            //TODO: config replace
-            andFilterBuilder.add(FilterBuilders.hasChildFilter(ElasticSearchIndexConfig.COM_WEBSITE.getPropertiesDocumentType(), filteredQueryBuilder));
+            final FilteredQueryBuilder filteredQueryBuilder = new FilteredQueryBuilder(QueryBuilders.matchAllQuery(), propertyFilterBuilder);
+            // TODO: config replace
+            andFilterBuilder.add(FilterBuilders.hasChildFilter(ElasticSearchIndexConfig.COM_WEBSITE.getPropertiesDocumentType(),
+                    filteredQueryBuilder));
         }
-        
-        //Another approach for specifications, in case faceting not used.
-        if(searchCriteria.getSpecifications().size() > 0)
+        // Another approach for specifications, in case faceting not used.
+        if (searchCriteria.getSpecifications().size() > 0)
         {
             FilterBuilder specificationFilterBuilder = null;
             specificationFilterBuilder = getSpecificationsFilterBuilder(searchCriteria);
-            
-            andFilterBuilder.add(FilterBuilders.nestedFilter(SearchDocumentFieldName.SPECIFICATIONS.getFieldName(), specificationFilterBuilder));
+            andFilterBuilder.add(FilterBuilders.nestedFilter(SearchDocumentFieldName.SPECIFICATIONS.getFieldName(),
+                    specificationFilterBuilder));
         }
-
         return andFilterBuilder;
     }
 
-    private FilterBuilder getSpecificationsFilterBuilder(SearchCriteria searchCriteria)
+    private FilterBuilder getSpecificationsFilterBuilder(final SearchCriteria searchCriteria)
     {
-        //This is used in case you want to search items based on specifications itself.
-        
+        // This is used in case you want to search items based on specifications itself.
         FilterBuilder specificationFilterBuilder;
-        List<Specification> specifications = searchCriteria.getSpecifications();
-        if(specifications.size() > 1)
+        final List<Specification> specifications = searchCriteria.getSpecifications();
+        if (specifications.size() > 1)
         {
-            OrFilterBuilder OrSpecificationFilterBuilder = FilterBuilders.orFilter();
-            for (Specification specification : specifications)
+            final OrFilterBuilder OrSpecificationFilterBuilder = FilterBuilders.orFilter();
+            for (final Specification specification : specifications)
             {
-                FilterBuilder filterBuilder = FilterBuilders.andFilter(FilterBuilders
-                        .termFilter(SearchDocumentFieldName.RESOLUTION.getFieldName(), specification.getResolution()),
-                            FilterBuilders.termFilter(SearchDocumentFieldName.MEMORY.getFieldName(), specification.getMemory()));
-
+                final FilterBuilder filterBuilder = FilterBuilders.andFilter(
+                        FilterBuilders.termFilter(SearchDocumentFieldName.RESOLUTION.getFieldName(), specification.getResolution()),
+                        FilterBuilders.termFilter(SearchDocumentFieldName.MEMORY.getFieldName(), specification.getMemory()));
                 OrSpecificationFilterBuilder.add(filterBuilder);
             }
             specificationFilterBuilder = OrSpecificationFilterBuilder;
         }
         else
         {
-            Specification specification = searchCriteria.getSpecifications().get(0);
-            
-                    FilterBuilder filterBuilder = FilterBuilders.andFilter(FilterBuilders
-                                                        .termFilter(SearchDocumentFieldName.RESOLUTION.getFieldName(), specification.getResolution()),
+            final Specification specification = searchCriteria.getSpecifications().get(0);
+            final FilterBuilder filterBuilder = FilterBuilders.andFilter(
+                    FilterBuilders.termFilter(SearchDocumentFieldName.RESOLUTION.getFieldName(), specification.getResolution()),
                     FilterBuilders.termFilter(SearchDocumentFieldName.MEMORY.getFieldName(), specification.getMemory()));
-                    
-                    specificationFilterBuilder = filterBuilder;
+            specificationFilterBuilder = filterBuilder;
         }
         return specificationFilterBuilder;
     }
-    
-    private FilterBuilder getSpecificationsFacetFilterBuilder(SearchCriteria searchCriteria)
+
+    private FilterBuilder getSpecificationsFacetFilterBuilder(final SearchCriteria searchCriteria)
     {
-        //This is used in case you want to search based on separate resolution/memory facets
-        Map<String, List<String>> multiSelectFilters = searchCriteria.getMultiSelectFilters();
-        List<String> resolutionFilters = new ArrayList<String>();
-        List<String> memoryFilters = new ArrayList<String>();
-        for (Entry<String, List<String>> entry : multiSelectFilters.entrySet())
+        // This is used in case you want to search based on separate resolution/memory facets
+        final Map<String, List<String>> multiSelectFilters = searchCriteria.getMultiSelectFilters();
+        final List<String> resolutionFilters = new ArrayList<String>();
+        final List<String> memoryFilters = new ArrayList<String>();
+        for (final Entry<String, List<String>> entry : multiSelectFilters.entrySet())
         {
-            if(entry.getKey().equals(SearchFacetName.SPECIFICATION_RESOLUTION.getCode()))
+            if (entry.getKey().equals(SearchFacetName.SPECIFICATION_RESOLUTION.getCode()))
             {
                 resolutionFilters.addAll(entry.getValue());
             }
-            else if(entry.getKey().equals(SearchFacetName.SPECIFICATION_MEMORY.getCode()))
+            else if (entry.getKey().equals(SearchFacetName.SPECIFICATION_MEMORY.getCode()))
             {
                 memoryFilters.addAll(entry.getValue());
             }
         }
-        if(resolutionFilters.size() == 0 && memoryFilters.size() == 0 )
+        if (resolutionFilters.size() == 0 && memoryFilters.size() == 0)
         {
             return FilterBuilders.queryFilter(QueryBuilders.matchAllQuery());
         }
-        
-        AndFilterBuilder andResolutionAndMemoryFilterBuilder = FilterBuilders.andFilter();
-        if(resolutionFilters.size() > 0)
+        final AndFilterBuilder andResolutionAndMemoryFilterBuilder = FilterBuilders.andFilter();
+        if (resolutionFilters.size() > 0)
         {
-            OrFilterBuilder OrResolutionFilterBuilder = FilterBuilders.orFilter();
-            for (String resolution : resolutionFilters)
+            final OrFilterBuilder OrResolutionFilterBuilder = FilterBuilders.orFilter();
+            for (final String resolution : resolutionFilters)
             {
                 OrResolutionFilterBuilder.add(FilterBuilders.termFilter(SearchDocumentFieldName.RESOLUTION.getFieldName(), resolution));
             }
             andResolutionAndMemoryFilterBuilder.add(OrResolutionFilterBuilder);
         }
-        if(memoryFilters.size() > 0)
+        if (memoryFilters.size() > 0)
         {
-            OrFilterBuilder OrMemoryFilterBuilder = FilterBuilders.orFilter();
-            for (String memory : memoryFilters)
+            final OrFilterBuilder OrMemoryFilterBuilder = FilterBuilders.orFilter();
+            for (final String memory : memoryFilters)
             {
                 OrMemoryFilterBuilder.add(FilterBuilders.termFilter(SearchDocumentFieldName.MEMORY.getFieldName(), memory));
             }
             andResolutionAndMemoryFilterBuilder.add(OrMemoryFilterBuilder);
         }
-//        else if(specifications.size() == 1)
-//        {
-//            Specification specification = searchCriteria.getSpecifications().get(0);
-//            
-//                    FilterBuilder filterBuilder = FilterBuilders.andFilter(FilterBuilders
-//                                                        .termFilter(SearchDocumentFieldName.RESOLUTION.getFieldName(), specification.getResolution()),
-//                    FilterBuilders.termFilter(SearchDocumentFieldName.MEMORY.getFieldName(), specification.getMemory()));
-//                    
-//                    specificationFilterBuilder = filterBuilder;
-//        }
-//        else
-//        {
-//            specificationFilterBuilder = FilterBuilders.matchAllFilter();
-//        }
+        // else if(specifications.size() == 1)
+        // {
+        // Specification specification = searchCriteria.getSpecifications().get(0);
+        //
+        // FilterBuilder filterBuilder = FilterBuilders.andFilter(FilterBuilders
+        // .termFilter(SearchDocumentFieldName.RESOLUTION.getFieldName(), specification.getResolution()),
+        // FilterBuilders.termFilter(SearchDocumentFieldName.MEMORY.getFieldName(), specification.getMemory()));
+        //
+        // specificationFilterBuilder = filterBuilder;
+        // }
+        // else
+        // {
+        // specificationFilterBuilder = FilterBuilders.matchAllFilter();
+        // }
         return andResolutionAndMemoryFilterBuilder;
     }
-    
-    private FilterBuilder getBaseFilterBuilder(String facetName, String fieldValue)
+
+    private FilterBuilder getBaseFilterBuilder(final String facetName, final String fieldValue)
     {
-        if(facetName.startsWith(SearchFacetName.SEARCH_FACET_TYPE_FACET_PREFIX))
+        if (facetName.startsWith(SearchFacetName.SEARCH_FACET_TYPE_FACET_PREFIX))
         {
-            return getTermFilter(SearchFacetName.CATEGORIES_FIELD_PREFIX + facetName + "." + SearchDocumentFieldName.FACETFILTER.getFieldName(), fieldValue.toLowerCase());
+            return getTermFilter(
+                    SearchFacetName.CATEGORIES_FIELD_PREFIX + facetName + "." + SearchDocumentFieldName.FACETFILTER.getFieldName(),
+                    fieldValue.toLowerCase());
         }
-        else if(facetName.startsWith(SearchFacetName.PRODUCT_PRICE_RANGE.getCode()))
+        else if (facetName.startsWith(SearchFacetName.PRODUCT_PRICE_RANGE.getCode()))
         {
-            return FilterBuilders.rangeFilter(SearchDocumentFieldName.PRICE.getFieldName()).includeLower(true).includeUpper(false).from(fieldValue.split("-")[0]).to(fieldValue.split("-")[1]);
+            return FilterBuilders.rangeFilter(SearchDocumentFieldName.PRICE.getFieldName()).includeLower(true).includeUpper(false)
+                    .from(fieldValue.split("-")[0]).to(fieldValue.split("-")[1]);
         }
         else
         {
             return FilterBuilders.termFilter(facetName, fieldValue);
         }
-//        return null;
+        // return null;
     }
-    
-    private TermFilterBuilder getTermFilter(String fieldName, String fieldValue)
+
+    private TermFilterBuilder getTermFilter(final String fieldName, final String fieldValue)
     {
         return FilterBuilders.termFilter(fieldName, fieldValue);
     }
 
-    private void addFacets(SearchCriteria searchCriteria, SearchRequestBuilder requestBuilder)
+    private void addFacets(final SearchCriteria searchCriteria, final SearchRequestBuilder requestBuilder)
     {
-        for(String facetCode : searchCriteria.getFacets())
+        for (final String facetCode : searchCriteria.getFacets())
         {
-            if(SearchFacetName.categoryFacetFields.contains(facetCode))
+            if (SearchFacetName.categoryFacetFields.contains(facetCode))
             {
                 requestBuilder.addFacet(getNewTermsFacet(facetCode, facetCode + "." + SearchDocumentFieldName.FACET.getFieldName()));
             }
-            else if(SearchFacetName.PRODUCT_PRICE_RANGE.getCode().equals(facetCode))
+            else if (SearchFacetName.PRODUCT_PRICE_RANGE.getCode().equals(facetCode))
             {
                 requestBuilder.addFacet(getPriceRangeFacet(facetCode));
             }
-            else if(SearchFacetName.PRODUCT_PROPERTY_SIZE.getCode().equals(facetCode) || SearchFacetName.PRODUCT_PROPERTY_COLOR.getCode().equals(facetCode))
+            else if (SearchFacetName.PRODUCT_PROPERTY_SIZE.getCode().equals(facetCode)
+                    || SearchFacetName.PRODUCT_PROPERTY_COLOR.getCode().equals(facetCode))
             {
-//                QueryBuilder filter = HasChildFilterBuilder;
-//                HasParentFilterBuilder hasParentFilter = FilterBuilders.hasParentFilter(ElasticSearchIndexConfig.COM_WEBSITE.getDocumentType(), QueryBuilders.matchAllQuery());
-//                
-//                String field = SearchFacetName.PRODUCT_PROPERTY_SIZE.getCode().equals(facetfield) ? SearchDocumentFieldName.SIZE.getFieldName() : SearchDocumentFieldName.COLOR.getFieldName();
-//                requestBuilder.addFacet(FacetBuilders.termsFacet(facetfield).field(field).facetFilter(hasParentFilter));
+                // QueryBuilder filter = HasChildFilterBuilder;
+                // HasParentFilterBuilder hasParentFilter =
+                // FilterBuilders.hasParentFilter(ElasticSearchIndexConfig.COM_WEBSITE.getDocumentType(), QueryBuilders.matchAllQuery());
+                //
+                // String field = SearchFacetName.PRODUCT_PROPERTY_SIZE.getCode().equals(facetfield) ?
+                // SearchDocumentFieldName.SIZE.getFieldName() : SearchDocumentFieldName.COLOR.getFieldName();
+                // requestBuilder.addFacet(FacetBuilders.termsFacet(facetfield).field(field).facetFilter(hasParentFilter));
             }
-            else if(SearchFacetName.SPECIFICATION_RESOLUTION.getCode().equals(facetCode))
+            else if (SearchFacetName.SPECIFICATION_RESOLUTION.getCode().equals(facetCode))
             {
-                //TODO, not working
-//                NestedFilterBuilder nestedFilterBuilder = FilterBuilders.nestedFilter(SearchDocumentFieldName.SPECIFICATIONS.getFieldName(), 
-//                        getSpecificationsFacetFilterBuilder(searchCriteria)).join(false);
-                NestedFilterBuilder nestedFilterBuilder = FilterBuilders.nestedFilter(SearchDocumentFieldName.SPECIFICATIONS.getFieldName(), 
-                        FilterBuilders.matchAllFilter()).join(false);
-                TermsFacetBuilder facetFilter = FacetBuilders.termsFacet(facetCode)
-                        .field(SearchDocumentFieldName.SPECIFICATIONS.getFieldName() + "." + SearchDocumentFieldName.RESOLUTION.getFieldName())
-                        .facetFilter(nestedFilterBuilder)
+                // TODO, not working
+                // NestedFilterBuilder nestedFilterBuilder =
+                // FilterBuilders.nestedFilter(SearchDocumentFieldName.SPECIFICATIONS.getFieldName(),
+                // getSpecificationsFacetFilterBuilder(searchCriteria)).join(false);
+                final NestedFilterBuilder nestedFilterBuilder = FilterBuilders.nestedFilter(
+                        SearchDocumentFieldName.SPECIFICATIONS.getFieldName(), FilterBuilders.matchAllFilter()).join(false);
+                final TermsFacetBuilder facetFilter = FacetBuilders
+                        .termsFacet(facetCode)
+                        .field(SearchDocumentFieldName.SPECIFICATIONS.getFieldName() + "."
+                                + SearchDocumentFieldName.RESOLUTION.getFieldName()).facetFilter(nestedFilterBuilder)
                         .nested(SearchDocumentFieldName.SPECIFICATIONS.getFieldName());
                 requestBuilder.addFacet(facetFilter);
             }
-            else if(SearchFacetName.SPECIFICATION_MEMORY.getCode().equals(facetCode))
+            else if (SearchFacetName.SPECIFICATION_MEMORY.getCode().equals(facetCode))
             {
-                //TODO, not working
-                NestedFilterBuilder nestedFilterBuilder = FilterBuilders.nestedFilter(SearchDocumentFieldName.SPECIFICATIONS.getFieldName(), 
-                        FilterBuilders.matchAllFilter()).join(false);
-                TermsFacetBuilder facetFilter = FacetBuilders.termsFacet(facetCode)
+                // TODO, not working
+                final NestedFilterBuilder nestedFilterBuilder = FilterBuilders.nestedFilter(
+                        SearchDocumentFieldName.SPECIFICATIONS.getFieldName(), FilterBuilders.matchAllFilter()).join(false);
+                final TermsFacetBuilder facetFilter = FacetBuilders.termsFacet(facetCode)
                         .field(SearchDocumentFieldName.SPECIFICATIONS.getFieldName() + "." + SearchDocumentFieldName.MEMORY.getFieldName())
-                        .facetFilter(nestedFilterBuilder)
-                        .nested(SearchDocumentFieldName.SPECIFICATIONS.getFieldName());
+                        .facetFilter(nestedFilterBuilder).nested(SearchDocumentFieldName.SPECIFICATIONS.getFieldName());
                 requestBuilder.addFacet(facetFilter);
             }
-            
         }
     }
 
-    private RangeFacetBuilder getPriceRangeFacet(String facetCode)
+    private RangeFacetBuilder getPriceRangeFacet(final String facetCode)
     {
-        return FacetBuilders.rangeFacet(facetCode)
-                                            .field(SearchDocumentFieldName.PRICE.getFieldName())
-                                            .addRange(0, 10)
-                                            .addRange(10, 20)
-                                            .addRange(20, 100);
+        return FacetBuilders.rangeFacet(facetCode).field(SearchDocumentFieldName.PRICE.getFieldName()).addRange(0, 10).addRange(10, 20)
+                .addRange(20, 100);
     }
-    
-    protected TermsFacetBuilder getNewTermsFacet(String facetName, String facetField)
+
+    protected TermsFacetBuilder getNewTermsFacet(final String facetName, final String facetField)
     {
         final TermsFacetBuilder termsFacetBuilder = new TermsFacetBuilder(facetName);
         termsFacetBuilder.field(facetField);
@@ -598,164 +553,146 @@ public class ProductQueryServiceImpl implements ProductQueryService
         termsFacetBuilder.size(100);
         return termsFacetBuilder;
     }
-    
-    private ProductSearchResult getProductSearchResults(SearchResponse response)
+
+    private ProductSearchResult getProductSearchResults(final SearchResponse response)
     {
         logger.debug("Total search hits returned for the query totalHits:" + response.getHits().getTotalHits());
-
-        ProductSearchResult productSearchResult = new ProductSearchResult();
+        final ProductSearchResult productSearchResult = new ProductSearchResult();
         productSearchResult.setTotalCount(response.getHits().totalHits());
-        for (SearchHit searchHit : response.getHits())
+        for (final SearchHit searchHit : response.getHits())
         {
-            Product product = new  Product();
-            
+            final Product product = new Product();
             product.setId(Long.valueOf(searchHit.getId()));
             product.setTitle(getFieldValueOrNull(searchHit, SearchDocumentFieldName.TITLE.getFieldName()));
             product.setPrice(BigDecimal.valueOf(getDoubleFieldValueOrNull(searchHit, SearchDocumentFieldName.PRICE.getFieldName())));
             product.setSoldOut(Boolean.valueOf(getFieldValueOrNull(searchHit, SearchDocumentFieldName.SOLD_OUT.getFieldName())));
-            
             productSearchResult.addProduct(product);
         }
-        
-        if(response.getFacets() !=null)
+        if (response.getFacets() != null)
         {
-            for (Facet facet : response.getFacets())
+            for (final Facet facet : response.getFacets())
             {
-                FacetResult facetResult = new FacetResult();
+                final FacetResult facetResult = new FacetResult();
                 facetResult.setCode(facet.getName());
-                
                 if (TermsFacet.TYPE.equals(facet.getType()))
                 {
-                    TermsFacet termsFacet = (TermsFacet) facet;
-                    if(termsFacet.getEntries().size() == 0)
+                    final TermsFacet termsFacet = (TermsFacet) facet;
+                    if (termsFacet.getEntries().size() == 0)
                     {
                         continue;
                     }
-                    
-                    for (TermsFacet.Entry entry : termsFacet.getEntries())
+                    for (final TermsFacet.Entry entry : termsFacet.getEntries())
                     {
-                        FacetResultEntry facetResultEntry = new FacetResultEntry();
-                        
-                        //final String term = entry.getTerm().substring(entry.getTerm().indexOf("_") + 1);
+                        final FacetResultEntry facetResultEntry = new FacetResultEntry();
+                        // final String term = entry.getTerm().substring(entry.getTerm().indexOf("_") + 1);
                         facetResultEntry.setTerm(entry.getTerm().string());
                         facetResultEntry.setCount(entry.getCount());
-                        
                         facetResult.addFacetResultEntry(facetResultEntry);
                     }
                 }
-                else if(RangeFacet.TYPE.equals(facet.getType()))
+                else if (RangeFacet.TYPE.equals(facet.getType()))
                 {
-                    RangeFacet rangeFacet = (RangeFacet) facet;
-                    if(rangeFacet.getEntries().size() == 0)
+                    final RangeFacet rangeFacet = (RangeFacet) facet;
+                    if (rangeFacet.getEntries().size() == 0)
                     {
                         continue;
                     }
-                    
-                    for (RangeFacet.Entry entry : rangeFacet.getEntries())
+                    for (final RangeFacet.Entry entry : rangeFacet.getEntries())
                     {
-                        FacetResultEntry facetResultEntry = new FacetResultEntry();
+                        final FacetResultEntry facetResultEntry = new FacetResultEntry();
                         facetResultEntry.setTerm(entry.getFromAsString() + " - " + entry.getToAsString());
                         facetResultEntry.setCount(entry.getCount());
-                        
                         facetResult.addFacetResultEntry(facetResultEntry);
                     }
                 }
                 else
                 {
-                    //NOT supported
+                    // NOT supported
                 }
                 productSearchResult.addFacet(facetResult);
             }
         }
-
         logger.debug("Total Product created from response:" + productSearchResult.getProducts().size());
-
         return productSearchResult;
     }
-    
-    protected String getFieldValueOrNull(SearchHit searchHit, String fieldName)
+
+    protected String getFieldValueOrNull(final SearchHit searchHit, final String fieldName)
     {
         final SearchHitField searchHitField = searchHit.field(fieldName);
-        if (searchHitField != null && searchHitField.value() != null) {
+        if (searchHitField != null && searchHitField.value() != null)
+        {
             return searchHitField.value().toString();
         }
         return null;
     }
-    
-    protected Double getDoubleFieldValueOrNull(SearchHit searchHit, String fieldName)
+
+    protected Double getDoubleFieldValueOrNull(final SearchHit searchHit, final String fieldName)
     {
         final SearchHitField searchHitField = searchHit.field(fieldName);
-        if (searchHitField != null && searchHitField.value() != null) {
+        if (searchHitField != null && searchHitField.value() != null)
+        {
             return Double.valueOf(searchHitField.value().toString());
         }
         return null;
     }
-    
-    protected void printSearchResponseForDebug(SearchResponse response)
+
+    protected void printSearchResponseForDebug(final SearchResponse response)
     {
         try
         {
-            if(logger.isDebugEnabled())
+            if (logger.isDebugEnabled())
             {
-                logger.debug("Search response:"+ response.toXContent(jsonBuilder().startObject().prettyPrint(), null).prettyPrint().string());
+                logger.debug("Search response:"
+                        + response.toXContent(jsonBuilder().startObject().prettyPrint(), null).prettyPrint().string());
             }
-        } catch (final IOException ex)
+        }
+        catch (final IOException ex)
         {
-            //ignore
+            // ignore
             logger.error("Error occured while printing search response for debug.", ex);
         }
     }
 
-    protected QueryBuilder getQueryBuilder(SearchCriteria searchCriteria)
+    protected QueryBuilder getQueryBuilder(final SearchCriteria searchCriteria)
     {
         QueryBuilder matchQueryBuilder = null;
-        
-        String queryString = searchCriteria.getQuery();
-        
+        final String queryString = searchCriteria.getQuery();
         if (StringUtils.isBlank(queryString))
         {
             matchQueryBuilder = QueryBuilders.matchAllQuery();
-        } 
+        }
         else
         {
             final String filterSpecialCharsQueryString = escapeQueryChars(queryString);
             final QueryStringQueryBuilder queryStringQueryBuilder = QueryBuilders.queryString(filterSpecialCharsQueryString);
-
             // Add fields
-            queryStringQueryBuilder.field(SearchDocumentFieldName.TITLE.getFieldName(), (float) 0.5)
-                                    .field(SearchDocumentFieldName.DESCRIPTION.getFieldName(), (float) 0.15)
-                                    ;
-            
+            queryStringQueryBuilder.field(SearchDocumentFieldName.TITLE.getFieldName(), (float) 0.5).field(
+                    SearchDocumentFieldName.DESCRIPTION.getFieldName(), (float) 0.15);
             for (final String contentCategoryFieldName : SearchFacetName.categoryFacetFields)
             {
-                queryStringQueryBuilder.field(SearchDocumentFieldName.CATEGORIES_ARRAY.getFieldName() + "."
-                        + contentCategoryFieldName, 1);
+                queryStringQueryBuilder.field(SearchDocumentFieldName.CATEGORIES_ARRAY.getFieldName() + "." + contentCategoryFieldName, 1);
             }
-            
             matchQueryBuilder = queryStringQueryBuilder;
         }
-        
-        if(searchCriteria.isUseBoostingFactor())
+        if (searchCriteria.isUseBoostingFactor())
         {
-            FunctionScoreQueryBuilder queryBuilder = new FunctionScoreQueryBuilder(matchQueryBuilder);
-            ScoreFunctionBuilder scoreFunctionBuilder = new ScriptScoreFunctionBuilder().script(SearchDocumentFieldName
+            final FunctionScoreQueryBuilder queryBuilder = new FunctionScoreQueryBuilder(matchQueryBuilder);
+            final ScoreFunctionBuilder scoreFunctionBuilder = new ScriptScoreFunctionBuilder().script(SearchDocumentFieldName
                     .getCalculatedScoreScriptForBostFactor());
             queryBuilder.add(scoreFunctionBuilder);
             return queryBuilder;
         }
-
         return matchQueryBuilder;
     }
-    
-    protected SearchRequestBuilder getSearchRequestBuilder(String[] indexName, String[] types, int from, int size)
+
+    protected SearchRequestBuilder getSearchRequestBuilder(final String[] indexName, final String[] types, final int from, final int size)
     {
-        final SearchRequestBuilder requestBuilder = searchClientService.getClient().prepareSearch(indexName).setTypes(types)
-                .setFrom(from)
+        final SearchRequestBuilder requestBuilder = searchClientService.getClient().prepareSearch(indexName).setTypes(types).setFrom(from)
                 .setSize(size);
         return requestBuilder;
     }
 
-    private String escapeQueryChars(String queryString)
+    private String escapeQueryChars(final String queryString)
     {
         final StringBuilder sb = new StringBuilder();
         for (int i = 0; i < queryString.length(); i++)
@@ -763,9 +700,9 @@ public class ProductQueryServiceImpl implements ProductQueryService
             final char c = queryString.charAt(i);
             // These characters are part of the query syntax and must be escaped
             // The list if retrieved from Solr escape characters.
-            if (c == '\\' || c == '+' || c == '-' || c == '!' || c == '(' || c == ')' || c == ':' || c == '^'
-                    || c == '[' || c == ']' || c == '\"' || c == '{' || c == '}' || c == '~' || c == '*' || c == '?'
-                    || c == '|' || c == '&' || c == ';' || c == '/' || Character.isWhitespace(c))
+            if (c == '\\' || c == '+' || c == '-' || c == '!' || c == '(' || c == ')' || c == ':' || c == '^' || c == '[' || c == ']'
+                    || c == '\"' || c == '{' || c == '}' || c == '~' || c == '*' || c == '?' || c == '|' || c == '&' || c == ';'
+                    || c == '/' || Character.isWhitespace(c))
             {
                 sb.append('\\');
             }
@@ -773,22 +710,22 @@ public class ProductQueryServiceImpl implements ProductQueryService
         }
         return sb.toString();
     }
-    
-    protected String getStringFieldValue(GetField field)
+
+    protected String getStringFieldValue(final GetField field)
     {
-        if(field !=null)
+        if (field != null)
         {
             return String.valueOf(field.getValue());
         }
         return null;
     }
 
-    protected Date getDateFieldValueOrNull(GetField field)
+    protected Date getDateFieldValueOrNull(final GetField field)
     {
-        if(field !=null)
+        if (field != null)
         {
             final String dateString = String.valueOf(field.getValue());
-            if(dateString !=null && !dateString.isEmpty())
+            if (dateString != null && !dateString.isEmpty())
             {
                 return SearchDateUtils.getFormattedDate(dateString);
             }
@@ -796,26 +733,26 @@ public class ProductQueryServiceImpl implements ProductQueryService
         return null;
     }
 
-    protected boolean getBooleanFieldValueOrFalse(GetField field)
+    protected boolean getBooleanFieldValueOrFalse(final GetField field)
     {
-        if(field !=null)
+        if (field != null)
         {
             return Boolean.valueOf(String.valueOf(field.getValue()));
         }
         return false;
     }
-    
+
     @SuppressWarnings("unchecked")
-    protected List<String> getListFieldValueOrNull(GetField field)
+    protected List<String> getListFieldValueOrNull(final GetField field)
     {
-        if(field !=null)
+        if (field != null)
         {
             final List<String> list = new ArrayList<String>();
             for (final Object object : field.getValues())
             {
-                if(object instanceof List)
+                if (object instanceof List)
                 {
-                    for (final String valueString : (List<String>)object)
+                    for (final String valueString : (List<String>) object)
                     {
                         list.add(String.valueOf(valueString));
                     }

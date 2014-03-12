@@ -2,6 +2,27 @@ package org.jai.search.index.impl;
 
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
+import org.jai.search.client.SearchClientService;
+import org.jai.search.config.ElasticSearchIndexConfig;
+import org.jai.search.index.IndexProductDataService;
+import org.jai.search.model.Category;
+import org.jai.search.model.Product;
+import org.jai.search.model.ProductGroup;
+import org.jai.search.model.ProductProperty;
+import org.jai.search.model.SearchDocumentFieldName;
+import org.jai.search.model.SearchFacetName;
+import org.jai.search.model.Specification;
+import org.jai.search.util.SearchDateUtils;
+
+import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.index.IndexRequestBuilder;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -11,324 +32,283 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import org.elasticsearch.action.bulk.BulkRequestBuilder;
-import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.action.index.IndexRequestBuilder;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.jai.search.actors.IndexDataActorSystemHandlerService;
-import org.jai.search.client.SearchClientService;
-import org.jai.search.index.IndexProductDataService;
-import org.jai.search.model.Category;
-import org.jai.search.model.ElasticSearchIndexConfig;
-import org.jai.search.model.Product;
-import org.jai.search.model.ProductGroup;
-import org.jai.search.model.ProductProperty;
-import org.jai.search.model.SearchDocumentFieldName;
-import org.jai.search.model.SearchFacetName;
-import org.jai.search.model.Specification;
-import org.jai.search.util.SearchDateUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 @Service
 public class IndexProductDataServiceImpl implements IndexProductDataService
 {
-	private static final Logger logger = LoggerFactory.getLogger(IndexProductDataServiceImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(IndexProductDataServiceImpl.class);
 
-	@Autowired
-    private SearchClientService searchClientService;
-    
     @Autowired
-    private IndexDataActorSystemHandlerService indexDataActorSystemHandlerService;
-    
-//    @Autowired
-//    private IndexDataActorSystemHandlerServiceScala indexDataActorSystemHandlerServiceScala;
-    
+    private SearchClientService searchClientService;
+
     @Override
-    public void indexAllProducts(ElasticSearchIndexConfig config, List<Product> products)
+    public void indexAllProducts(final ElasticSearchIndexConfig config, final List<Product> products)
     {
         logger.debug("Indexing bulk data request, for size:" + products.size());
-
         if (products.isEmpty())
         {
             return;
         }
-        
-        List<IndexRequestBuilder> requests = new ArrayList<IndexRequestBuilder>();
-
-        for (Product product : products)
+        final List<IndexRequestBuilder> requests = new ArrayList<IndexRequestBuilder>();
+        for (final Product product : products)
         {
             try
             {
                 requests.add(getIndexRequestBuilderForAProduct(product, config));
-            } catch (Exception ex)
+            }
+            catch (final Exception ex)
             {
-                logger.error("Error occurred while creating index document for product with id: " + product.getId() + ", moving to next product!", ex);
+                logger.error("Error occurred while creating index document for product with id: " + product.getId()
+                        + ", moving to next product!", ex);
             }
         }
         processBulkRequests(requests);
     }
-    
+
     @Override
-    public void indexProduct(ElasticSearchIndexConfig config, Product product)
+    public void indexProduct(final ElasticSearchIndexConfig config, final Product product)
     {
         try
         {
             getIndexRequestBuilderForAProduct(product, config).get();
-        } catch (Exception ex)
+        }
+        catch (final Exception ex)
         {
             logger.error("Error occurred while creating index document for product.", ex);
             throw new RuntimeException(ex);
         }
     }
-    
+
     @Override
-    public boolean isProductExists(ElasticSearchIndexConfig config, Long productId)
+    public boolean isProductExists(final ElasticSearchIndexConfig config, final Long productId)
     {
-        return searchClientService.getClient().prepareGet().setIndex(config.getIndexAliasName())
-                .setId(String.valueOf(productId))
-                .get()
+        return searchClientService.getClient().prepareGet().setIndex(config.getIndexAliasName()).setId(String.valueOf(productId)).get()
                 .isExists();
     }
-    
+
     @Override
-    public void deleteProduct(ElasticSearchIndexConfig config, Long productId)
+    public void deleteProduct(final ElasticSearchIndexConfig config, final Long productId)
     {
-        searchClientService.getClient().prepareDelete(config.getIndexAliasName(), config.getDocumentType(), String.valueOf(productId)).get();
+        searchClientService.getClient().prepareDelete(config.getIndexAliasName(), config.getDocumentType(), String.valueOf(productId))
+                .get();
     }
-    
-    public void indexAllProductGroupData(ElasticSearchIndexConfig config, List<ProductGroup> productGroups, boolean parentRelationShip)
+
+    public void indexAllProductGroupData(final ElasticSearchIndexConfig config, final List<ProductGroup> productGroups,
+            final boolean parentRelationShip)
     {
-        for (ProductGroup productGroup : productGroups)
+        for (final ProductGroup productGroup : productGroups)
         {
-        	List<IndexRequestBuilder> requests = new ArrayList<IndexRequestBuilder>();
+            final List<IndexRequestBuilder> requests = new ArrayList<IndexRequestBuilder>();
             try
             {
                 requests.add(getIndexRequestBuilderForAProductGroup(productGroup, config));
-                //Index all products data also with parent
-                for (Product product : productGroup.getProducts())
+                // Index all products data also with parent
+                for (final Product product : productGroup.getProducts())
                 {
-                    IndexRequestBuilder indexRequestBuilderForAProduct = getIndexRequestBuilderForAProduct(product, config);
-                    if(parentRelationShip)
+                    final IndexRequestBuilder indexRequestBuilderForAProduct = getIndexRequestBuilderForAProduct(product, config);
+                    if (parentRelationShip)
                     {
                         indexRequestBuilderForAProduct.setParent(String.valueOf(productGroup.getId()));
                     }
-                    
                     requests.add(indexRequestBuilderForAProduct);
-                    
-                    for (ProductProperty productProperty : product.getProductProperties())
+                    for (final ProductProperty productProperty : product.getProductProperties())
                     {
-                        IndexRequestBuilder indexRequestBuilderForAProductProperty = getIndexRequestBuilderForAProductProperty(product, productProperty, config);
-                        if(parentRelationShip)
+                        final IndexRequestBuilder indexRequestBuilderForAProductProperty = getIndexRequestBuilderForAProductProperty(
+                                product, productProperty, config);
+                        if (parentRelationShip)
                         {
                             indexRequestBuilderForAProductProperty.setParent(String.valueOf(product.getId()));
                         }
-                        
                         requests.add(indexRequestBuilderForAProductProperty);
                     }
                 }
-            } 
-            catch (Exception ex)
+            }
+            catch (final Exception ex)
             {
                 logger.error("Error occurred while creating index document for product with id: " + productGroup.getId()
                         + ", moving to next product!", ex);
             }
             processBulkRequests(requests);
-//            processBulkRequestsUsingAkka(requests);
-//            requests.clear();
+            // processBulkRequestsUsingAkka(requests);
+            // requests.clear();
         }
     }
-    
-    private IndexRequestBuilder getIndexRequestBuilderForAProduct(Product product, ElasticSearchIndexConfig config) throws IOException
+
+    private IndexRequestBuilder getIndexRequestBuilderForAProduct(final Product product, final ElasticSearchIndexConfig config)
+            throws IOException
     {
-        XContentBuilder contentBuilder = getXContentBuilderForAProduct(product);
-        
-        IndexRequestBuilder indexRequestBuilder = searchClientService.getClient().prepareIndex(config.getIndexAliasName(), config.getDocumentType(), String.valueOf(product.getId()));
-
+        final XContentBuilder contentBuilder = getXContentBuilderForAProduct(product);
+        final IndexRequestBuilder indexRequestBuilder = searchClientService.getClient().prepareIndex(config.getIndexAliasName(),
+                config.getDocumentType(), String.valueOf(product.getId()));
         indexRequestBuilder.setSource(contentBuilder);
-
         return indexRequestBuilder;
     }
-    
-    private IndexRequestBuilder getIndexRequestBuilderForAProductProperty(Product product, ProductProperty productProperty, ElasticSearchIndexConfig config) throws IOException
+
+    private IndexRequestBuilder getIndexRequestBuilderForAProductProperty(final Product product, final ProductProperty productProperty,
+            final ElasticSearchIndexConfig config) throws IOException
     {
-        XContentBuilder contentBuilder = getXContentBuilderForAProductProperty(productProperty);
-        
-        String documentId = String.valueOf(product.getId()) + String.valueOf(productProperty.getId()) + "0000";
-        logger.debug("Generated XContentBuilder for document id {} is {}", new Object[]{documentId, contentBuilder.prettyPrint().string()});
-
-        IndexRequestBuilder indexRequestBuilder = searchClientService.getClient().prepareIndex(config.getIndexAliasName(), config.getPropertiesDocumentType(), documentId);
-
+        final XContentBuilder contentBuilder = getXContentBuilderForAProductProperty(productProperty);
+        final String documentId = String.valueOf(product.getId()) + String.valueOf(productProperty.getId()) + "0000";
+        logger.debug("Generated XContentBuilder for document id {} is {}",
+                new Object[] { documentId, contentBuilder.prettyPrint().string() });
+        final IndexRequestBuilder indexRequestBuilder = searchClientService.getClient().prepareIndex(config.getIndexAliasName(),
+                config.getPropertiesDocumentType(), documentId);
         indexRequestBuilder.setSource(contentBuilder);
-
         return indexRequestBuilder;
     }
-    
-    private IndexRequestBuilder getIndexRequestBuilderForAProductGroup(ProductGroup productGroup, ElasticSearchIndexConfig config) throws IOException
+
+    private IndexRequestBuilder getIndexRequestBuilderForAProductGroup(final ProductGroup productGroup,
+            final ElasticSearchIndexConfig config) throws IOException
     {
-        XContentBuilder contentBuilder = getXContentBuilderForAProductGroup(productGroup);
-        
-        logger.debug("Generated XContentBuilder for document id {} is {}", new Object[]{productGroup.getId(), contentBuilder.prettyPrint().string()});
-
-        IndexRequestBuilder indexRequestBuilder = searchClientService.getClient().prepareIndex(config.getIndexAliasName(), config.getGroupDocumentType(), String.valueOf(productGroup.getId()));
-
+        final XContentBuilder contentBuilder = getXContentBuilderForAProductGroup(productGroup);
+        logger.debug("Generated XContentBuilder for document id {} is {}", new Object[] { productGroup.getId(),
+                contentBuilder.prettyPrint().string() });
+        final IndexRequestBuilder indexRequestBuilder = searchClientService.getClient().prepareIndex(config.getIndexAliasName(),
+                config.getGroupDocumentType(), String.valueOf(productGroup.getId()));
         indexRequestBuilder.setSource(contentBuilder);
-
         return indexRequestBuilder;
     }
-    
-    private XContentBuilder getXContentBuilderForAProduct(Product product) throws IOException
+
+    private XContentBuilder getXContentBuilderForAProduct(final Product product) throws IOException
     {
         XContentBuilder contentBuilder = null;
         try
         {
             contentBuilder = jsonBuilder().prettyPrint().startObject();
-            
             contentBuilder.field(SearchDocumentFieldName.TITLE.getFieldName(), product.getTitle())
-                          .field(SearchDocumentFieldName.DESCRIPTION.getFieldName(), product.getDescription())
-                          .field(SearchDocumentFieldName.PRICE.getFieldName(), product.getPrice())
-                          .field(SearchDocumentFieldName.KEYWORDS.getFieldName(), product.getKeywords())
-                          .field(SearchDocumentFieldName.AVAILABLE_DATE.getFieldName(), SearchDateUtils.formatDate(product.getAvailableOn()))
-                          .field(SearchDocumentFieldName.SOLD_OUT.getFieldName(), product.isSoldOut())
-                          .field(SearchDocumentFieldName.BOOSTFACTOR.getFieldName(), product.getBoostFactor())
-                          ;
-            
-            if(product.getCategories().size() > 0)
+                    .field(SearchDocumentFieldName.DESCRIPTION.getFieldName(), product.getDescription())
+                    .field(SearchDocumentFieldName.PRICE.getFieldName(), product.getPrice())
+                    .field(SearchDocumentFieldName.KEYWORDS.getFieldName(), product.getKeywords())
+                    .field(SearchDocumentFieldName.AVAILABLE_DATE.getFieldName(), SearchDateUtils.formatDate(product.getAvailableOn()))
+                    .field(SearchDocumentFieldName.SOLD_OUT.getFieldName(), product.isSoldOut())
+                    .field(SearchDocumentFieldName.BOOSTFACTOR.getFieldName(), product.getBoostFactor());
+            if (product.getCategories().size() > 0)
             {
-                //Add category data
-                Map<Integer, Set<Category>> levelMap = getContentCategoryLevelMap(product.getCategories());
-                
+                // Add category data
+                final Map<Integer, Set<Category>> levelMap = getContentCategoryLevelMap(product.getCategories());
                 contentBuilder.startArray(SearchDocumentFieldName.CATEGORIES_ARRAY.getFieldName());
-                for (Entry<Integer, Set<Category>> contentCategoryEntrySet : levelMap.entrySet())
+                for (final Entry<Integer, Set<Category>> contentCategoryEntrySet : levelMap.entrySet())
                 {
-                    for (Category category : contentCategoryEntrySet.getValue())
+                    for (final Category category : contentCategoryEntrySet.getValue())
                     {
-                        String name = category.getType() + SearchFacetName.HIERARCHICAL_DATA_LEVEL_STRING + contentCategoryEntrySet.getKey();
-                        contentBuilder.startObject()
-                        .field(name  + "." + SearchDocumentFieldName.FACET.getFieldName(), category.getName())
-                        //                                    .field(name + SearchFacetName.SEQUENCED_FIELD_SUFFIX, getSequenceNumberOrdering(contentCategory) + categoryTranalationText)
-                        .field(name + "." + SearchDocumentFieldName.FACETFILTER.getFieldName(), category.getName().toLowerCase())
-                        .field(name + "." + SearchDocumentFieldName.SUGGEST.getFieldName(), category.getName().toLowerCase())
-                        .endObject();
+                        final String name = category.getType() + SearchFacetName.HIERARCHICAL_DATA_LEVEL_STRING
+                                + contentCategoryEntrySet.getKey();
+                        contentBuilder
+                                .startObject()
+                                .field(name + "." + SearchDocumentFieldName.FACET.getFieldName(), category.getName())
+                                // .field(name + SearchFacetName.SEQUENCED_FIELD_SUFFIX, getSequenceNumberOrdering(contentCategory) +
+                                // categoryTranalationText)
+                                .field(name + "." + SearchDocumentFieldName.FACETFILTER.getFieldName(), category.getName().toLowerCase())
+                                .field(name + "." + SearchDocumentFieldName.SUGGEST.getFieldName(), category.getName().toLowerCase())
+                                .endObject();
                     }
                 }
                 contentBuilder.endArray();
             }
-            
-           if(product.getSpecifications().size() > 0)
-           {
-               //Index specifications
-               contentBuilder.startArray(SearchDocumentFieldName.SPECIFICATIONS.getFieldName());
-               for (Specification specification : product.getSpecifications())
-               {
-                   contentBuilder.startObject()
-                   .field(SearchDocumentFieldName.RESOLUTION.getFieldName(), specification.getResolution())
-                   .field(SearchDocumentFieldName.MEMORY.getFieldName(), specification.getMemory())
-                   .endObject(); 
-               }
-               contentBuilder.endArray();
-           }
-           
-           contentBuilder.endObject();
-        }
-        catch (IOException ex)
-        {
-            logger.error(ex.getMessage());
-            throw new RuntimeException("Error occured while creating product gift json document!", ex);
-        }
-        
-        logger.debug("Generated XContentBuilder for document id {} is {}", new Object[]{product.getId(), contentBuilder.prettyPrint().string()});
-        
-        return contentBuilder;
-    }
-
-    private XContentBuilder getXContentBuilderForAProductProperty(ProductProperty productProperty)
-    {
-        XContentBuilder contentBuilder = null;
-        try
-        {
-            contentBuilder = jsonBuilder().prettyPrint().startObject();
-            contentBuilder.field(SearchDocumentFieldName.SIZE.getFieldName(), productProperty.getSize())
-                          .field(SearchDocumentFieldName.COLOR.getFieldName(), productProperty.getColor())
-                          ;
-            contentBuilder.endObject();
-        }
-        catch (IOException ex)
-        {
-            logger.error(ex.getMessage());
-            throw new RuntimeException("Error occured while creating product gift json document!", ex);
-        }
-        return contentBuilder;
-    }
-    
-    private XContentBuilder getXContentBuilderForAProductGroup(ProductGroup productGroup)
-    {
-        XContentBuilder contentBuilder = null;
-        try
-        {
-            contentBuilder = jsonBuilder().prettyPrint().startObject();
-            
-            contentBuilder.field(SearchDocumentFieldName.TITLE.getFieldName(), productGroup.getGroupTitle())
-                          .field(SearchDocumentFieldName.DESCRIPTION.getFieldName(), productGroup.getGroupDescription())
-                          ;
-            
-            contentBuilder.endObject();
-        }
-        catch (IOException ex)
-        {
-            logger.error(ex.getMessage());
-            throw new RuntimeException("Error occured while creating product gift json document!", ex);
-        }
-        return contentBuilder;
-    }
-
-   
-    private Map<Integer, Set<Category>> getContentCategoryLevelMap(List<Category> categories)
-    {
-        Map<Integer, Set<Category>> levelMap = new HashMap<Integer, Set<Category>>();
-        for (Category contentCategory : categories)
-        {
-                int defaultTopLevelCategoryIndex = 1;
-                int levelInHierarchy = getCategoryLevelInHierarchy(contentCategory, defaultTopLevelCategoryIndex);
-                for (int categoryLevelCounter = levelInHierarchy; categoryLevelCounter <= levelInHierarchy && categoryLevelCounter >= defaultTopLevelCategoryIndex; categoryLevelCounter--)
+            if (product.getSpecifications().size() > 0)
+            {
+                // Index specifications
+                contentBuilder.startArray(SearchDocumentFieldName.SPECIFICATIONS.getFieldName());
+                for (final Specification specification : product.getSpecifications())
                 {
-                    processCategoryAtLevel(levelMap, findCategoryAtLevel(contentCategory, levelInHierarchy, categoryLevelCounter), categoryLevelCounter);
+                    contentBuilder.startObject().field(SearchDocumentFieldName.RESOLUTION.getFieldName(), specification.getResolution())
+                            .field(SearchDocumentFieldName.MEMORY.getFieldName(), specification.getMemory()).endObject();
                 }
+                contentBuilder.endArray();
+            }
+            contentBuilder.endObject();
+        }
+        catch (final IOException ex)
+        {
+            logger.error(ex.getMessage());
+            throw new RuntimeException("Error occured while creating product gift json document!", ex);
+        }
+        logger.debug("Generated XContentBuilder for document id {} is {}", new Object[] { product.getId(),
+                contentBuilder.prettyPrint().string() });
+        return contentBuilder;
+    }
+
+    private XContentBuilder getXContentBuilderForAProductProperty(final ProductProperty productProperty)
+    {
+        XContentBuilder contentBuilder = null;
+        try
+        {
+            contentBuilder = jsonBuilder().prettyPrint().startObject();
+            contentBuilder.field(SearchDocumentFieldName.SIZE.getFieldName(), productProperty.getSize()).field(
+                    SearchDocumentFieldName.COLOR.getFieldName(), productProperty.getColor());
+            contentBuilder.endObject();
+        }
+        catch (final IOException ex)
+        {
+            logger.error(ex.getMessage());
+            throw new RuntimeException("Error occured while creating product gift json document!", ex);
+        }
+        return contentBuilder;
+    }
+
+    private XContentBuilder getXContentBuilderForAProductGroup(final ProductGroup productGroup)
+    {
+        XContentBuilder contentBuilder = null;
+        try
+        {
+            contentBuilder = jsonBuilder().prettyPrint().startObject();
+            contentBuilder.field(SearchDocumentFieldName.TITLE.getFieldName(), productGroup.getGroupTitle()).field(
+                    SearchDocumentFieldName.DESCRIPTION.getFieldName(), productGroup.getGroupDescription());
+            contentBuilder.endObject();
+        }
+        catch (final IOException ex)
+        {
+            logger.error(ex.getMessage());
+            throw new RuntimeException("Error occured while creating product gift json document!", ex);
+        }
+        return contentBuilder;
+    }
+
+    private Map<Integer, Set<Category>> getContentCategoryLevelMap(final List<Category> categories)
+    {
+        final Map<Integer, Set<Category>> levelMap = new HashMap<Integer, Set<Category>>();
+        for (final Category contentCategory : categories)
+        {
+            final int defaultTopLevelCategoryIndex = 1;
+            final int levelInHierarchy = getCategoryLevelInHierarchy(contentCategory, defaultTopLevelCategoryIndex);
+            for (int categoryLevelCounter = levelInHierarchy; categoryLevelCounter <= levelInHierarchy
+                    && categoryLevelCounter >= defaultTopLevelCategoryIndex; categoryLevelCounter--)
+            {
+                processCategoryAtLevel(levelMap, findCategoryAtLevel(contentCategory, levelInHierarchy, categoryLevelCounter),
+                        categoryLevelCounter);
+            }
         }
         return levelMap;
     }
-    
-    private Category findCategoryAtLevel(Category contentCategory, int currentCategoryLevel, int counter)
+
+    private Category findCategoryAtLevel(final Category contentCategory, final int currentCategoryLevel, final int counter)
     {
         if (currentCategoryLevel == counter)
         {
             return contentCategory;
         }
-        int nextCounter = counter + 1;
+        final int nextCounter = counter + 1;
         return findCategoryAtLevel(contentCategory.getParentCategory(), currentCategoryLevel, nextCounter);
     }
-    
-    private int getCategoryLevelInHierarchy(Category contentCategory, int level)
+
+    private int getCategoryLevelInHierarchy(final Category contentCategory, final int level)
     {
         if (contentCategory.getParentCategory() == null)
         {
             return level;
         }
-        int nextLevel = level + 1;
+        final int nextLevel = level + 1;
         return getCategoryLevelInHierarchy(contentCategory.getParentCategory(), nextLevel);
     }
-    
-    private void processCategoryAtLevel(Map<Integer, Set<Category>> levelMap, Category contentCategory, int categoryLevel)
+
+    private void processCategoryAtLevel(final Map<Integer, Set<Category>> levelMap, final Category contentCategory, final int categoryLevel)
     {
-        Set<Category> categoryLevelSet = getCategoryLevelSet(levelMap, categoryLevel);
+        final Set<Category> categoryLevelSet = getCategoryLevelSet(levelMap, categoryLevel);
         categoryLevelSet.add(contentCategory);
     }
-    
-    private Set<Category> getCategoryLevelSet(Map<Integer, Set<Category>> levelMap, int level)
+
+    private Set<Category> getCategoryLevelSet(final Map<Integer, Set<Category>> levelMap, final int level)
     {
-        Integer valueOf = Integer.valueOf(level);
+        final Integer valueOf = Integer.valueOf(level);
         Set<Category> set = levelMap.get(valueOf);
         if (set == null)
         {
@@ -337,21 +317,18 @@ public class IndexProductDataServiceImpl implements IndexProductDataService
         }
         return set;
     }
-    
-    protected BulkResponse processBulkRequests(List<IndexRequestBuilder> requests)
+
+    protected BulkResponse processBulkRequests(final List<IndexRequestBuilder> requests)
     {
         if (requests.size() > 0)
         {
-            BulkRequestBuilder bulkRequest = searchClientService.getClient().prepareBulk();
-            
-            for (IndexRequestBuilder indexRequestBuilder : requests)
+            final BulkRequestBuilder bulkRequest = searchClientService.getClient().prepareBulk();
+            for (final IndexRequestBuilder indexRequestBuilder : requests)
             {
                 bulkRequest.add(indexRequestBuilder);
             }
-            
             logger.debug("Executing bulk index request for size:" + requests.size());
-            BulkResponse bulkResponse = bulkRequest.execute().actionGet();
-            
+            final BulkResponse bulkResponse = bulkRequest.execute().actionGet();
             logger.debug("Bulk operation data index response total items is:" + bulkResponse.getItems().length);
             if (bulkResponse.hasFailures())
             {
@@ -366,20 +343,4 @@ public class IndexProductDataServiceImpl implements IndexProductDataService
             return null;
         }
     }
-    
-    protected BulkResponse processBulkRequestsUsingAkka(List<IndexRequestBuilder> requests)
-    {
-        if (requests.size() > 0)
-        {
-        	logger.debug("Handling requests through aaka!");
-//        	indexDataActorSystemHandlerServiceScala.handleIndexRequests(JavaConversions.asScalaBuffer(requests).seq());
-            return null;
-        }
-        else
-        {
-            logger.debug("Executing bulk index request for size: 0");
-            return null;
-        }
-    }
-    
 }

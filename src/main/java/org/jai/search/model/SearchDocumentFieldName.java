@@ -1,7 +1,5 @@
 package org.jai.search.model;
 
-
-
 public enum SearchDocumentFieldName
 {
     BOOSTFACTOR("boostfactor"),
@@ -16,36 +14,20 @@ public enum SearchDocumentFieldName
     FACETFILTER("facetfilter"),
     SUGGEST("suggest"),
     SEQUENCED("sequenced"),
-    
     SIZE("size"),
     COLOR("color"),
-    
     SPECIFICATIONS("specifications"),
     RESOLUTION("resolution"),
-    MEMORY("memory"),
-    ;
+    MEMORY("memory"), ;
+    public static final String[] productQueryFields = { TITLE.getFieldName(), PRICE.getFieldName(), SOLD_OUT.getFieldName() };
 
-    public static final String[] productQueryFields = {
-        TITLE.getFieldName(),
-        PRICE.getFieldName(),
-        SOLD_OUT.getFieldName()
-    };
-
-    public static final String[] productDocumentFields = {
-        TITLE.getFieldName(),
-        DESCRIPTION.getFieldName(),
-        PRICE.getFieldName(),
-        SOLD_OUT.getFieldName(),
-        AVAILABLE_DATE.getFieldName(),
-        PRICE.getFieldName(),
-        KEYWORDS.getFieldName(),
-        BOOSTFACTOR.getFieldName(),
-        CATEGORIES_ARRAY.getFieldName(),
-    };
+    public static final String[] productDocumentFields = { TITLE.getFieldName(), DESCRIPTION.getFieldName(), PRICE.getFieldName(),
+            SOLD_OUT.getFieldName(), AVAILABLE_DATE.getFieldName(), PRICE.getFieldName(), KEYWORDS.getFieldName(),
+            BOOSTFACTOR.getFieldName(), CATEGORIES_ARRAY.getFieldName(), };
 
     private String fieldName;
 
-    private SearchDocumentFieldName(String fieldName)
+    private SearchDocumentFieldName(final String fieldName)
     {
         this.fieldName = fieldName;
     }
@@ -54,10 +36,9 @@ public enum SearchDocumentFieldName
     {
         return fieldName;
     }
-    
+
     public static String getCalculatedScoreScriptForBostFactor()
     {
         return "_score + doc.boostfactor.value";
     }
-
 }

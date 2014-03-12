@@ -14,6 +14,8 @@
 	    	<onMismatch>ACCEPT</onMismatch>
 	    </filter>
 		<layout class="ch.qos.logback.classic.PatternLayout">
+		 	<!--   <pattern>%date{ISO8601} %-5level %logger{36} %X{sourceThread} - %msg%n</pattern> -->
+		 	<!-- <pattern>%date{ISO8601} %-5level %logger{36} %X{akkaSource} - %msg%n</pattern> -->
 			<Pattern>%date{ISO8601} %-5level [%thread] %class.%method\(%file:%line\) - %msg %n</Pattern>
 		</layout>
 	</appender>
@@ -40,7 +42,8 @@
 		<appender-ref ref="STDOUT" />
 		<appender-ref ref="STDERR" />
 	</root>
-	
+
+	<!-- 	
 	<logger name="org.jai.search">
         <level value="ERROR"/>
     </logger>
@@ -52,9 +55,5 @@
     <logger name="org.jai.search.actors">
         <level value="DEBUG"/>
     </logger>
-    
-    <logger name="org.springframework">
-        <level value="ERROR"/>
-    </logger>
-    
+     -->
 </configuration>

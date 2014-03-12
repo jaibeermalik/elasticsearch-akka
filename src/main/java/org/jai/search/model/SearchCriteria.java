@@ -1,50 +1,50 @@
 package org.jai.search.model;
 
+import org.elasticsearch.search.sort.SortOrder;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.elasticsearch.search.sort.SortOrder;
-
 public class SearchCriteria
 {
     private String query;
-    
+
     private String[] indices;
-    
+
     private String[] documentTypes;
-    
+
     private int from = 0;
-    
+
     private int size = 10;
 
     private SortOrder sortOrder;
-    
+
     private boolean noFacets;
-    
-    private List<String> facets = new ArrayList<String>();
-    
+
+    private final List<String> facets = new ArrayList<String>();
+
     // Used to handle single select in "and" operations
-    private Map<String, String> singleSelectFilters;
+    private final Map<String, String> singleSelectFilters;
 
     // Used for "or" operations between different facet entries.
-    private Map<String, List<String>> multiSelectFilters;
-    
+    private final Map<String, List<String>> multiSelectFilters;
+
     // Used to filter on field values separately
     // OR { condition1 AND {condition2 OR condition3 } }
-    private List<Map<String, Object>> fieldValueFilters;
-    
-    private List<ProductProperty> productProperties;
-    
-    private List<Specification> specifications;
-    
-    //sold out items at the end of list.
+    private final List<Map<String, Object>> fieldValueFilters;
+
+    private final List<ProductProperty> productProperties;
+
+    private final List<Specification> specifications;
+
+    // sold out items at the end of list.
     private boolean rescoreOnSoldOut;
-    
+
     private boolean useBoostingFactor;
-    
+
     public SearchCriteria()
     {
         singleSelectFilters = new LinkedHashMap<String, String>();
@@ -53,13 +53,13 @@ public class SearchCriteria
         productProperties = new ArrayList<ProductProperty>();
         specifications = new ArrayList<Specification>();
     }
-    
+
     public String[] getIndexes()
     {
         return indices;
     }
 
-    public SearchCriteria indices(String... indices)
+    public SearchCriteria indices(final String... indices)
     {
         this.indices = indices;
         return this;
@@ -70,13 +70,13 @@ public class SearchCriteria
         return documentTypes;
     }
 
-    public SearchCriteria documentTypes(String... documentTypes)
+    public SearchCriteria documentTypes(final String... documentTypes)
     {
         this.documentTypes = documentTypes;
         return this;
     }
 
-    public SearchCriteria query(String query)
+    public SearchCriteria query(final String query)
     {
         this.query = query;
         return this;
@@ -91,14 +91,14 @@ public class SearchCriteria
     {
         return from;
     }
-    
-    public SearchCriteria from(int from)
+
+    public SearchCriteria from(final int from)
     {
         this.from = from;
         return this;
     }
-    
-    public SearchCriteria size(int size)
+
+    public SearchCriteria size(final int size)
     {
         this.size = size;
         return this;
@@ -108,13 +108,13 @@ public class SearchCriteria
     {
         return size;
     }
-    
+
     public SortOrder getSortOrder()
     {
         return sortOrder;
     }
-    
-    public SearchCriteria sortOrder(SortOrder sortOrder)
+
+    public SearchCriteria sortOrder(final SortOrder sortOrder)
     {
         this.sortOrder = sortOrder;
         return this;
@@ -124,32 +124,32 @@ public class SearchCriteria
     {
         return noFacets;
     }
-    
-    public SearchCriteria noFacets(boolean noFacets)
+
+    public SearchCriteria noFacets(final boolean noFacets)
     {
         this.noFacets = noFacets;
         return this;
     }
-    
+
     public List<String> getFacets()
     {
         return facets;
     }
-    
-    public SearchCriteria facets(String facet)
+
+    public SearchCriteria facets(final String facet)
     {
         facets.add(facet);
         return this;
     }
-    
-    public void addFiledValueFilter(String fieldName, Object value)
+
+    public void addFiledValueFilter(final String fieldName, final Object value)
     {
-        Map<String, Object> fieldCrtiteria = new HashMap<String, Object>();
+        final Map<String, Object> fieldCrtiteria = new HashMap<String, Object>();
         fieldCrtiteria.put(fieldName, value);
         fieldValueFilters.add(fieldCrtiteria);
     }
-    
-    public SearchCriteria addMultiSelectFilter(String facetCode, String facetTerm)
+
+    public SearchCriteria addMultiSelectFilter(final String facetCode, final String facetTerm)
     {
         List<String> list = multiSelectFilters.get(facetCode);
         if (list == null)
@@ -160,18 +160,19 @@ public class SearchCriteria
         list.add(facetTerm);
         return this;
     }
-    
-    public SearchCriteria addSingleSelectFilter(String facetCode, String facetTerm)
+
+    public SearchCriteria addSingleSelectFilter(final String facetCode, final String facetTerm)
     {
         singleSelectFilters.put(facetCode, facetTerm);
         return this;
     }
-    
+
     public boolean hasFilters()
     {
-        return singleSelectFilters.size() > 0 || multiSelectFilters.size() > 0 || fieldValueFilters.size() > 0 || productProperties.size() > 0 || specifications.size() > 0;
+        return singleSelectFilters.size() > 0 || multiSelectFilters.size() > 0 || fieldValueFilters.size() > 0
+                || productProperties.size() > 0 || specifications.size() > 0;
     }
-    
+
     public List<Map<String, Object>> getFieldValueFilters()
     {
         return fieldValueFilters;
@@ -181,17 +182,17 @@ public class SearchCriteria
     {
         return singleSelectFilters;
     }
-    
+
     public Map<String, List<String>> getMultiSelectFilters()
-    {        
+    {
         return multiSelectFilters;
     }
-    
-    public void addProductProperty(ProductProperty productProperty)
+
+    public void addProductProperty(final ProductProperty productProperty)
     {
         productProperties.add(productProperty);
     }
-    
+
     public List<ProductProperty> getProductProperties()
     {
         return productProperties;
@@ -202,7 +203,7 @@ public class SearchCriteria
         return specifications;
     }
 
-    public void addSpecifications(Specification specification)
+    public void addSpecifications(final Specification specification)
     {
         specifications.add(specification);
     }
@@ -212,7 +213,7 @@ public class SearchCriteria
         return rescoreOnSoldOut;
     }
 
-    public SearchCriteria rescoreOnSoldOut(boolean rescoreOnSoldOut)
+    public SearchCriteria rescoreOnSoldOut(final boolean rescoreOnSoldOut)
     {
         this.rescoreOnSoldOut = rescoreOnSoldOut;
         return this;
@@ -223,7 +224,7 @@ public class SearchCriteria
         return useBoostingFactor;
     }
 
-    public SearchCriteria useBoostingFactor(boolean useBoostingFactor)
+    public SearchCriteria useBoostingFactor(final boolean useBoostingFactor)
     {
         this.useBoostingFactor = useBoostingFactor;
         return this;

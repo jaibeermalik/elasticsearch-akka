@@ -19,7 +19,9 @@ BooststrapSearchSetup()
 													->SetupMasterWorkerActor(foreach index)
 																										->IndexDocumentRouterActor(let's say 10)
 																														->SearchDocumentGeneratorActor 
-second approach:																														->IndexDocumentActor
+																														->IndexDocumentActor			
+
+second approach:																														
 BooststrapSearchSetup
 					for full index, SearchConfig->SetupIndexWorkerActor(foreach index, first generate doc and then index)
 																							->SearchDocumentGeneratorActor 
@@ -28,11 +30,24 @@ BooststrapSearchSetup
 																									->SearchDocumentGeneratorActor 
 																									->IndexDocumentActor
 
+BooststrapSearchSetup->REBUILD_ALL_INDICES->Is all indexing done->REBUILD_ALL_INDICES_DONE
+SetupIndexWorkerActor->
+
+
 Regular update:
 Index a document Asynch.
 
 Delete doc:
 delete a doc, and check status.
+
+Check Pinned dispatcher for the database calls, if those are blocking calls. dispatcher n resource per actor.
+Check balancing dispatcher for same actor type as diving work to idle actors also.
+Pick->dispatcher, executor, no. of threads/cores, throughput (msg exec time)
+
+check dynamically resing the routers.
+check filedurablestorage mailbox type for storing messages for durability, usually for multi node distributed systems.
+
+check spray/scalatra for exposing actors using http/rest api.
 
 -----
 

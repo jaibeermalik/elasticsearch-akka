@@ -6,15 +6,15 @@ import java.util.List;
 public class FacetResult
 {
     private String code;
-    
-    private List<FacetResultEntry> facetResultEntries = new ArrayList<FacetResultEntry>();
+
+    private final List<FacetResultEntry> facetResultEntries = new ArrayList<FacetResultEntry>();
 
     public String getCode()
     {
         return code;
     }
 
-    public void setCode(String code)
+    public void setCode(final String code)
     {
         this.code = code;
     }
@@ -24,7 +24,7 @@ public class FacetResult
         return facetResultEntries;
     }
 
-    public void addFacetResultEntry(FacetResultEntry facetResultEntry)
+    public void addFacetResultEntry(final FacetResultEntry facetResultEntry)
     {
         facetResultEntries.add(facetResultEntry);
     }

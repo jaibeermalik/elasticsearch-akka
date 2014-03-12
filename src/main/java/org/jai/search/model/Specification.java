@@ -3,10 +3,10 @@ package org.jai.search.model;
 public class Specification
 {
     private String resolution;
-    
+
     private String memory;
 
-    public Specification(String resoluton, String memory)
+    public Specification(final String resoluton, final String memory)
     {
         this.resolution = resoluton;
         this.memory = memory;
@@ -17,7 +17,7 @@ public class Specification
         return resolution;
     }
 
-    public void setResolution(String resolution)
+    public void setResolution(final String resolution)
     {
         this.resolution = resolution;
     }
@@ -27,7 +27,7 @@ public class Specification
         return memory;
     }
 
-    public void setMemory(String memory)
+    public void setMemory(final String memory)
     {
         this.memory = memory;
     }
