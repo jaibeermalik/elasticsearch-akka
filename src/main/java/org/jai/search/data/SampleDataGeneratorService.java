@@ -1,9 +1,11 @@
 package org.jai.search.data;
 
 import org.jai.search.model.Product;
+import org.jai.search.model.ProductGroup;
 import org.jai.search.model.ProductProperty;
 
 import java.util.List;
+import java.util.Set;
 
 public interface SampleDataGeneratorService
 {
@@ -87,7 +89,15 @@ public interface SampleDataGeneratorService
 
     Product generateProductSampleDataFor(Long productId);
 
+    ProductProperty generateProductPropertySampleDataFor(Long productPropertyId);
+    
+    ProductGroup generateProductGroupSampleDataFor(Long productGroupId);
+
     List<Product> generateProductsSampleData();
 
+    Set<ProductProperty> generateProductPropertySampleData();
+
     ProductProperty findProductProperty(String size, String color);
+
+    List<ProductGroup> generateProductGroupSampleData();
 }

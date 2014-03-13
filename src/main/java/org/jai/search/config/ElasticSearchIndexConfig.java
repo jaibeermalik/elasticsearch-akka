@@ -6,8 +6,8 @@ import java.util.Locale;
 
 public enum ElasticSearchIndexConfig
 {
-    COM_WEBSITE("com", "product", SupportedLocale.ENGLISH),
-    NL_WEBSITE("nl", "product", SupportedLocale.DUTCH);
+    COM_WEBSITE("com", IndexDocumentType.PRODUCT.getText(), SupportedLocale.ENGLISH),
+    NL_WEBSITE("nl", IndexDocumentType.PRODUCT.getText(), SupportedLocale.DUTCH);
     private String indexName;
 
     private String documentType;
@@ -71,7 +71,7 @@ public enum ElasticSearchIndexConfig
         {
             case COM_WEBSITE:
             case NL_WEBSITE:
-                return "productgroup";
+                return IndexDocumentType.PRODUCT_GROUP.getText();
             default:
                 break;
         }
@@ -84,7 +84,7 @@ public enum ElasticSearchIndexConfig
         {
             case COM_WEBSITE:
             case NL_WEBSITE:
-                return "productproperty";
+                return IndexDocumentType.PRODUCT_PROPERTY.getText();
             default:
                 break;
         }

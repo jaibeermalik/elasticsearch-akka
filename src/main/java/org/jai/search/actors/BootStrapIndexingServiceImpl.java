@@ -1,6 +1,5 @@
 package org.jai.search.actors;
 
-import org.jai.search.config.ElasticSearchIndexConfig;
 import org.jai.search.data.SampleDataGeneratorService;
 import org.jai.search.setup.SetupIndexService;
 
@@ -35,14 +34,13 @@ public class BootStrapIndexingServiceImpl implements BootStrapIndexService
     {
         logger.info("Starting index preparation for {}", IndexingMessage.REBUILD_ALL_INDICES);
         setupIndexMasterActor.tell(IndexingMessage.REBUILD_ALL_INDICES, null);
-        
         final Timeout timeout = new Timeout(Duration.create(60, "seconds"));
-        Future<Object> future = Patterns.ask(setupIndexMasterActor, "DONE", timeout);
+        Future<Object> future = Patterns.ask(setupIndexMasterActor, IndexingMessage.REBUILD_ALL_INDICES_DONE, timeout);
         try
         {
             while (!(Boolean) Await.result(future, timeout.duration()))
             {
-                future = Patterns.ask(setupIndexMasterActor, "DONE", timeout);
+                future = Patterns.ask(setupIndexMasterActor, IndexingMessage.REBUILD_ALL_INDICES_DONE, timeout);
                 System.out.println("Got back " + false);
                 Thread.sleep(1000);
             }

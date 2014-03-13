@@ -3,6 +3,7 @@ package org.jai.search.data.impl;
 import org.jai.search.data.SampleDataGeneratorService;
 import org.jai.search.model.Category;
 import org.jai.search.model.Product;
+import org.jai.search.model.ProductGroup;
 import org.jai.search.model.ProductProperty;
 import org.jai.search.model.SearchFacetName;
 import org.jai.search.model.Specification;
@@ -26,19 +27,29 @@ public class SampleDataGeneratorServiceImpl implements SampleDataGeneratorServic
     private static Set<Category> hierarchicalCategories = new HashSet<Category>();
 
     private static Set<ProductProperty> productProperties = new HashSet<ProductProperty>();
+    
+    private static List<ProductGroup> productGroups = new ArrayList<ProductGroup>();
 
     private static List<Product> products = new ArrayList<Product>();
+    
     static
     {
         hierarchicalCategories = generateHierarchicalCategoryData();
         productProperties = getProductProperties();
         products = generateSampleData();
+        productGroups = getProductGroupSampleData();
     }
-
+    
+    @Override
+    public List<ProductGroup> generateProductGroupSampleData()
+    {
+        return productGroups;
+    }
+    
     private static List<Product> generateSampleData()
     {
         final List<Product> products = new ArrayList<Product>();
-        for (int i = 0; i < 50; i++)
+        for (int i = 1; i <= 50; i++)
         {
             final Product product = new Product();
             product.setId(Long.valueOf(i));
@@ -61,7 +72,7 @@ public class SampleDataGeneratorServiceImpl implements SampleDataGeneratorServic
                 product.addSpecification(new Specification(RESOLUTON_3200_1800, MEMORY_8_GB));
                 product.addSpecification(new Specification(RESOLUTON_1920_1200, MEMORY_6_GB));
             }
-            else if (i >= 5 && i < 10)
+            else if (i >= 5 && i <= 10)
             {
                 product.addCategory(findCategory(hierarchicalCategories, MACBOOK_PRO));
                 product.addCategory(findCategory(hierarchicalCategories, APPLE));
@@ -73,7 +84,7 @@ public class SampleDataGeneratorServiceImpl implements SampleDataGeneratorServic
                 product.addSpecification(new Specification(RESOLUTON_1920_1080, MEMORY_6_GB));
                 product.addSpecification(new Specification(RESOLUTON_1920_1200, MEMORY_6_GB));
             }
-            else if (i >= 10 && i < 20)
+            else if (i > 10 && i <= 20)
             {
                 product.addCategory(findCategory(hierarchicalCategories, HP));
                 product.addCategory(findCategory(hierarchicalCategories, AGE_12_18_YEARS));
@@ -102,20 +113,21 @@ public class SampleDataGeneratorServiceImpl implements SampleDataGeneratorServic
                 PRODUCTPROPERTY_SIZE_17_INCH, PRODUCTPROPERTY_SIZE_21_INCH };
         final String[] colors = new String[] { PRODUCTPROPERTY_COLOR_BLACK, PRODUCTPROPERTY_COLOR_GREY, PRODUCTPROPERTY_COLOR_YELLOW,
                 PRODUCTPROPERTY_COLOR_PURPLE, PRODUCTPROPERTY_COLOR_BROWN };
-        for (int i = 0, j = 0; i < 10; i++)
+        for (int i = 1; i <= 5; i++)
         {
             final ProductProperty productProperty = new ProductProperty();
             productProperty.setId(Long.valueOf(i));
-            if (i < 5)
-            {
-                productProperty.setSize(sizes[i]);
-                productProperty.setColor(colors[i]);
-            }
-            else
-            {
-                productProperty.setSize(sizes[j++]);
-                productProperty.setColor(colors[9 - i]);
-            }
+//            if (i <= 5)
+//            {
+                productProperty.setSize(sizes[i-1]);
+                productProperty.setColor(colors[i-1]);
+                
+//            }
+//            else
+//            {
+//                productProperty.setSize(sizes[j++]);
+//                productProperty.setColor(colors[9 - i]);
+//            }
             productProperties.add(productProperty);
         }
         logger.debug(productProperties.toString());
@@ -137,7 +149,7 @@ public class SampleDataGeneratorServiceImpl implements SampleDataGeneratorServic
     @Override
     public ProductProperty findProductProperty(final String size, final String color)
     {
-        return findProductProperty(getProductProperties(), size, color);
+        return findProductProperty(productProperties, size, color);
     }
 
     @Override
@@ -154,9 +166,41 @@ public class SampleDataGeneratorServiceImpl implements SampleDataGeneratorServic
     }
 
     @Override
+    public ProductProperty generateProductPropertySampleDataFor(final Long productPropertyId)
+    {
+        for (final ProductProperty productProperty : productProperties)
+        {
+            if (productProperty.getId().equals(productPropertyId))
+            {
+                return productProperty;
+            }
+        }
+        return null;
+    }
+    
+    @Override
+    public ProductGroup generateProductGroupSampleDataFor(Long productGroupId)
+    {
+        for (final ProductGroup productGroup : productGroups)
+        {
+            if (productGroup.getId().equals(productGroupId))
+            {
+                return productGroup;
+            }
+        }
+        return null;
+    }
+
+    @Override
     public List<Product> generateProductsSampleData()
     {
         return products;
+    }
+
+    @Override
+    public Set<ProductProperty> generateProductPropertySampleData()
+    {
+        return productProperties;
     }
 
     private static Set<Category> generateHierarchicalCategoryData()
@@ -203,6 +247,29 @@ public class SampleDataGeneratorServiceImpl implements SampleDataGeneratorServic
         categories.add(greenColor);
         categories.add(blueColor);
         return categories;
+    }
+    
+    private static List<ProductGroup> getProductGroupSampleData()
+    {
+        List<ProductGroup> productGroups = new ArrayList<ProductGroup>();
+        
+        int count = 0;
+        for (int i = 1; i <= 10; i++)
+        {
+            ProductGroup productGroup = new ProductGroup();
+            productGroup.setId(Long.valueOf(i));
+            productGroup.setGroupTitle("groupTitle" + i);
+            productGroup.setGroupDescription("groupDescription" + i );
+            
+            while(count < i*5)
+            {
+                Product product = products.get(count);
+                productGroup.addProduct(product);
+                count = count + 1;
+            }
+            productGroups.add(productGroup);
+        }
+        return productGroups;
     }
 
     private static Category findCategory(final Set<Category> categories, final String catName)

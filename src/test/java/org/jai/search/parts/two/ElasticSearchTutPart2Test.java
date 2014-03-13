@@ -12,6 +12,8 @@ import org.jai.search.model.ProductSearchResult;
 import org.jai.search.model.SearchCriteria;
 import org.jai.search.model.SearchFacetName;
 import org.jai.search.test.AbstractSearchJUnit4SpringContextTests;
+
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class ElasticSearchTutPart2Test extends AbstractSearchJUnit4SpringContextTests
@@ -76,10 +78,25 @@ public class ElasticSearchTutPart2Test extends AbstractSearchJUnit4SpringContext
         searchCriteria.indices(config.getIndexAliasName());
         searchCriteria.documentTypes(config.getDocumentType());
         
-        searchCriteria.query("query");
+        //total count products
         ProductSearchResult searchProducts = productQueryService.searchProducts(searchCriteria);
+        assertEquals(sampleDataGenerator.generateProductsSampleData().size(), searchProducts.getTotalCount());
+        
+        //total count product property
+        searchCriteria.documentTypes(config.getPropertiesDocumentType());
+        searchProducts = productQueryService.searchProducts(searchCriteria);
+        assertEquals(sampleDataGenerator.generateProductPropertySampleData().size(), searchProducts.getTotalCount());
+        
+        //total count product groups
+        searchCriteria.documentTypes(config.getGroupDocumentType());
+        searchProducts = productQueryService.searchProducts(searchCriteria);
+        assertEquals(sampleDataGenerator.generateProductGroupSampleData().size(), searchProducts.getTotalCount());
+        
+        searchCriteria.documentTypes(config.getDocumentType());
+        searchCriteria.query("query");
+        searchProducts = productQueryService.searchProducts(searchCriteria);
      
-        //50 + 50 docs from both indices
+        //0 + 0 docs from both indices
         assertEquals(0, searchProducts.getTotalCount());
         assertEquals(0, searchProducts.getProducts().size());
         
@@ -99,6 +116,7 @@ public class ElasticSearchTutPart2Test extends AbstractSearchJUnit4SpringContext
     }
     
     @Test
+    @Ignore
     public void findSimilarProducts()
     {
         ElasticSearchIndexConfig config = ElasticSearchIndexConfig.COM_WEBSITE;

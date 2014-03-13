@@ -4,6 +4,7 @@ import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import org.jai.search.client.SearchClientService;
 import org.jai.search.config.ElasticSearchIndexConfig;
+import org.jai.search.config.IndexDocumentType;
 import org.jai.search.model.AutoSuggestionEntry;
 import org.jai.search.model.Category;
 import org.jai.search.model.FacetResult;
@@ -561,12 +562,15 @@ public class ProductQueryServiceImpl implements ProductQueryService
         productSearchResult.setTotalCount(response.getHits().totalHits());
         for (final SearchHit searchHit : response.getHits())
         {
-            final Product product = new Product();
-            product.setId(Long.valueOf(searchHit.getId()));
-            product.setTitle(getFieldValueOrNull(searchHit, SearchDocumentFieldName.TITLE.getFieldName()));
-            product.setPrice(BigDecimal.valueOf(getDoubleFieldValueOrNull(searchHit, SearchDocumentFieldName.PRICE.getFieldName())));
-            product.setSoldOut(Boolean.valueOf(getFieldValueOrNull(searchHit, SearchDocumentFieldName.SOLD_OUT.getFieldName())));
-            productSearchResult.addProduct(product);
+            if(IndexDocumentType.PRODUCT.getText().equals(searchHit.getType()))
+            {
+                final Product product = new Product();
+                product.setId(Long.valueOf(searchHit.getId()));
+                product.setTitle(getFieldValueOrNull(searchHit, SearchDocumentFieldName.TITLE.getFieldName()));
+                product.setPrice(BigDecimal.valueOf(getDoubleFieldValueOrNull(searchHit, SearchDocumentFieldName.PRICE.getFieldName())));
+                product.setSoldOut(Boolean.valueOf(getFieldValueOrNull(searchHit, SearchDocumentFieldName.SOLD_OUT.getFieldName())));
+                productSearchResult.addProduct(product);
+            }
         }
         if (response.getFacets() != null)
         {

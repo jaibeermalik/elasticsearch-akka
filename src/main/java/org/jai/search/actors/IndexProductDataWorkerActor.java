@@ -1,7 +1,8 @@
 package org.jai.search.actors;
 
+import org.jai.search.config.IndexDocumentType;
+import org.jai.search.exception.IndexDataException;
 import org.jai.search.index.IndexProductDataService;
-import org.jai.search.model.IndexConfig;
 
 import akka.actor.UntypedActor;
 import akka.event.Logging;
@@ -21,13 +22,45 @@ public class IndexProductDataWorkerActor extends UntypedActor
     @Override
     public void onReceive(final Object message)
     {
-        LOG.debug("Worker Actor message for IndexProductDataWorkerActor is:" + message);
-        if (message instanceof IndexConfig)
+        // LOG.debug("Worker Actor message for IndexProductDataWorkerActor is:" + message);
+        if (message instanceof IndexDocumentVO)
         {
-            final IndexConfig indexConfig = (IndexConfig) message;
-            indexProductDataService.indexProduct(indexConfig.getConfig(), indexConfig.getProduct());
-            indexConfig.indexDone(true);
-            getSender().tell(indexConfig, getSelf());
+            try
+            {
+                final IndexDocumentVO indexDocumentVO = (IndexDocumentVO) message;
+                if (indexDocumentVO.getDocumentType().equals(IndexDocumentType.PRODUCT))
+                {
+//                    if (indexDocumentVO.getDocumentId().intValue() == 36)
+//                    {
+//                        throw new RuntimeException("blah blah");
+//                    }
+                    indexProductDataService.indexProduct(indexDocumentVO.getConfig(), indexDocumentVO.getProduct());
+                    indexDocumentVO.indexDone(true);
+                    getSender().tell(indexDocumentVO, getSelf());
+                }
+                else if (indexDocumentVO.getDocumentType().equals(IndexDocumentType.PRODUCT_PROPERTY))
+                {
+                    indexProductDataService.indexProductPropterty(indexDocumentVO.getConfig(), indexDocumentVO.getProductProperty());
+                    indexDocumentVO.indexDone(true);
+                    getSender().tell(indexDocumentVO, getSelf());
+                }
+                else if (indexDocumentVO.getDocumentType().equals(IndexDocumentType.PRODUCT_GROUP))
+                {
+                    indexProductDataService.indexProductGroup(indexDocumentVO.getConfig(), indexDocumentVO.getProductGroup());
+                    indexDocumentVO.indexDone(true);
+                    getSender().tell(indexDocumentVO, getSelf());
+                }
+                else
+                {
+                    unhandled(message);
+                }
+            }
+            catch (final Exception e)
+            {
+                LOG.error("Error occured while indexing document data for message: {}", message);
+                final IndexDataException indexDataException = new IndexDataException(e);
+                getSender().tell(indexDataException, getSelf());
+            }
         }
         else
         {

@@ -79,6 +79,35 @@ public class IndexProductDataServiceImpl implements IndexProductDataService
     }
 
     @Override
+    public void indexProductPropterty(final ElasticSearchIndexConfig config, final ProductProperty productProperty)
+    {
+        try
+        {
+            //To parent-child for now.
+            getIndexRequestBuilderForAProductProperty(null, productProperty, config).get();
+        }
+        catch (final Exception ex)
+        {
+            logger.error("Error occurred while creating index document for product.", ex);
+            throw new RuntimeException(ex);
+        }
+    }
+    @Override
+    public void indexProductGroup(ElasticSearchIndexConfig config, ProductGroup productGroup)
+    {
+        try
+        {
+            //To parent-child for now.
+            getIndexRequestBuilderForAProductGroup(productGroup, config).get();
+        }
+        catch (final Exception ex)
+        {
+            logger.error("Error occurred while creating index document for product.", ex);
+            throw new RuntimeException(ex);
+        }
+    }
+
+    @Override
     public boolean isProductExists(final ElasticSearchIndexConfig config, final Long productId)
     {
         return searchClientService.getClient().prepareGet().setIndex(config.getIndexAliasName()).setId(String.valueOf(productId)).get()
@@ -147,7 +176,7 @@ public class IndexProductDataServiceImpl implements IndexProductDataService
             final ElasticSearchIndexConfig config) throws IOException
     {
         final XContentBuilder contentBuilder = getXContentBuilderForAProductProperty(productProperty);
-        final String documentId = String.valueOf(product.getId()) + String.valueOf(productProperty.getId()) + "0000";
+        final String documentId = (product !=null ? String.valueOf(product.getId()) : "") + String.valueOf(productProperty.getId()) + "0000";
         logger.debug("Generated XContentBuilder for document id {} is {}",
                 new Object[] { documentId, contentBuilder.prettyPrint().string() });
         final IndexRequestBuilder indexRequestBuilder = searchClientService.getClient().prepareIndex(config.getIndexAliasName(),
