@@ -50,8 +50,8 @@ public class DocumentGeneratorWorkerActor extends UntypedActor
                 }
                 else if (indexDocumentVO.getDocumentType().equals(IndexDocumentType.PRODUCT_GROUP))
                 {
-                    final ProductGroup productGroup = sampleDataGenerator.generateProductGroupSampleDataFor(indexDocumentVO
-                            .getDocumentId());
+                    final ProductGroup productGroup = sampleDataGenerator
+                            .generateProductGroupSampleDataFor(indexDocumentVO.getDocumentId());
                     Assert.notNull(productGroup);
                     indexDocumentVO.productGroup(productGroup);
                     getSender().tell(indexDocumentVO, null);

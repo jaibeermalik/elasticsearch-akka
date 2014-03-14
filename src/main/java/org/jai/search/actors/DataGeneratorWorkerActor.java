@@ -2,7 +2,7 @@ package org.jai.search.actors;
 
 import org.jai.search.config.IndexDocumentType;
 import org.jai.search.data.SampleDataGeneratorService;
-import org.jai.search.exception.DataGenerationException;
+import org.jai.search.exception.DocumentTypeDataGenerationException;
 
 import akka.actor.UntypedActor;
 import akka.event.Logging;
@@ -25,20 +25,20 @@ public class DataGeneratorWorkerActor extends UntypedActor
         // message from master actor
         if (message instanceof IndexDocumentTypeMessageVO)
         {
+            final IndexDocumentTypeMessageVO indexDocumentTypeMessageVO = (IndexDocumentTypeMessageVO) message;
             try
             {
-                final IndexDocumentTypeMessageVO indexDocumentTypeMessageVO = (IndexDocumentTypeMessageVO) message;
                 if (indexDocumentTypeMessageVO.getIndexDocumentType().equals(IndexDocumentType.PRODUCT))
                 {
-                    generateProductsData(indexDocumentTypeMessageVO);
+                    generateData(indexDocumentTypeMessageVO, sampleDataGenerator.generateProductsSampleData().size());
                 }
                 else if (indexDocumentTypeMessageVO.getIndexDocumentType().equals(IndexDocumentType.PRODUCT_PROPERTY))
                 {
-                    generateProductPropertyData(indexDocumentTypeMessageVO);
+                    generateData(indexDocumentTypeMessageVO, sampleDataGenerator.generateProductPropertySampleData().size());
                 }
                 else if (indexDocumentTypeMessageVO.getIndexDocumentType().equals(IndexDocumentType.PRODUCT_GROUP))
                 {
-                    generateProductGroupData(indexDocumentTypeMessageVO);
+                    generateData(indexDocumentTypeMessageVO, sampleDataGenerator.generateProductGroupSampleData().size());
                 }
                 else
                 {
@@ -47,8 +47,10 @@ public class DataGeneratorWorkerActor extends UntypedActor
             }
             catch (final Exception ex)
             {
-                LOG.error("Error occurred while generating data for message {}", message);
-                final DataGenerationException dataGenerationException = new DataGenerationException(ex);
+                String errorMessage = "Error occurred while generating data for message" + message;
+                LOG.error(errorMessage);
+                final DocumentTypeDataGenerationException dataGenerationException = new DocumentTypeDataGenerationException(
+                        indexDocumentTypeMessageVO.getIndexDocumentType(), errorMessage, ex);
                 getSender().tell(dataGenerationException, getSelf());
             }
         }
@@ -58,35 +60,13 @@ public class DataGeneratorWorkerActor extends UntypedActor
         }
     }
 
-    private void generateProductGroupData(IndexDocumentTypeMessageVO indexDocumentTypeMessageVO)
+    private void generateData(final IndexDocumentTypeMessageVO indexDocumentTypeMessageVO, int size)
     {
-        final int size = sampleDataGenerator.generateProductGroupSampleData().size();
-        for (int i = 1; i <= size; i++)
-        {
-            final IndexDocumentVO indexConfig = new IndexDocumentVO().config(indexDocumentTypeMessageVO.getConfig())
-                    .documentType(indexDocumentTypeMessageVO.getIndexDocumentType()).documentId(Long.valueOf(i));
-            getSender().tell(indexConfig, getSelf());
-        }
-    }
-
-    private void generateProductPropertyData(final IndexDocumentTypeMessageVO indexDocumentTypeMessageVO)
-    {
-        final int size = sampleDataGenerator.generateProductPropertySampleData().size();
-        for (int i = 1; i <= size; i++)
-        {
-            final IndexDocumentVO indexConfig = new IndexDocumentVO().config(indexDocumentTypeMessageVO.getConfig())
-                    .documentType(indexDocumentTypeMessageVO.getIndexDocumentType()).documentId(Long.valueOf(i));
-            getSender().tell(indexConfig, getSelf());
-        }
-    }
-
-    private void generateProductsData(final IndexDocumentTypeMessageVO indexDocumentTypeMessageVO)
-    {
-        final int size = sampleDataGenerator.generateProductsSampleData().size();
         for (int i = 1; i <= size; i++)
         {
             final IndexDocumentVO indexDocumentVO = new IndexDocumentVO().config(indexDocumentTypeMessageVO.getConfig())
-                    .documentType(indexDocumentTypeMessageVO.getIndexDocumentType()).documentId(Long.valueOf(i));
+                    .documentType(indexDocumentTypeMessageVO.getIndexDocumentType())
+                    .newIndexName(indexDocumentTypeMessageVO.getNewIndexName()).documentId(Long.valueOf(i));
             getSender().tell(indexDocumentVO, getSelf());
         }
     }

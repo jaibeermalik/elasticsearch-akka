@@ -80,17 +80,34 @@ public class SetupIndexServiceImpl implements SetupIndexService
             deleteIndex(suffixedIndexName);
         }
         // create indices
-        createGivenIndex(config, suffixedIndexName);
+        createGivenIndex(config, suffixedIndexName, true);
+    }
+    
+    @Override
+    public String createNewIndex(ElasticSearchIndexConfig config)
+    {
+        final Date date = new Date();
+        final String suffixedIndexName = getSuffixedIndexName(config.getIndexAliasName(), date);
+        if (isIndexExists(suffixedIndexName))
+        {
+            // drop existing index
+            deleteIndex(suffixedIndexName);
+        }
+        // create indices
+        createGivenIndex(config, suffixedIndexName, false);
+        
+        updateIndexDocumentTypeMappings(config);
+        return suffixedIndexName;
     }
 
     @Override
     public void createIndex(final ElasticSearchIndexConfig config)
     {
         final String suffixedIndexName = getSuffixedIndexName(config.getIndexAliasName(), new Date());
-        createGivenIndex(config, suffixedIndexName);
+        createGivenIndex(config, suffixedIndexName, true);
     }
 
-    private void createGivenIndex(final ElasticSearchIndexConfig config, final String indexName)
+    private void createGivenIndex(final ElasticSearchIndexConfig config, final String indexName, boolean createAlias)
     {
         final Client client = searchClientService.getClient();
         CreateIndexRequestBuilder createIndexRequestBuilder;
@@ -105,7 +122,10 @@ public class SetupIndexServiceImpl implements SetupIndexService
         }
         // update mapping on server
         createIndexRequestBuilder.execute().actionGet();
-        createAlias(config.getIndexAliasName(), indexName);
+        if(createAlias)
+        {
+            createAlias(config.getIndexAliasName(), indexName);
+        }
         logger.debug("Index {} created! ", indexName);
     }
 
@@ -115,6 +135,12 @@ public class SetupIndexServiceImpl implements SetupIndexService
         searchClientService.getClient().admin().indices().prepareAliases().addAlias(indexName, aliasName).get();
         // clean up old alias
         cleanupExistingOldIndex(indexName, aliasName);
+    }
+    
+    @Override
+    public void replaceAlias(String newIndexName, String indexAliasName)
+    {
+        createAlias(indexAliasName, newIndexName);
     }
 
     private void cleanupExistingOldIndex(final String newIndex, final String aliasName)

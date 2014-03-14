@@ -30,23 +30,23 @@ public class IndexProductDataWorkerActor extends UntypedActor
                 final IndexDocumentVO indexDocumentVO = (IndexDocumentVO) message;
                 if (indexDocumentVO.getDocumentType().equals(IndexDocumentType.PRODUCT))
                 {
-//                    if (indexDocumentVO.getDocumentId().intValue() == 36)
-//                    {
-//                        throw new RuntimeException("blah blah");
-//                    }
-                    indexProductDataService.indexProduct(indexDocumentVO.getConfig(), indexDocumentVO.getProduct());
+                    // if (indexDocumentVO.getDocumentId().intValue() == 36)
+                    // {
+                    // throw new RuntimeException("blah blah");
+                    // }
+                    indexProductDataService.indexProduct(indexDocumentVO.getConfig(), indexDocumentVO.getNewIndexName(), indexDocumentVO.getProduct());
                     indexDocumentVO.indexDone(true);
                     getSender().tell(indexDocumentVO, getSelf());
                 }
                 else if (indexDocumentVO.getDocumentType().equals(IndexDocumentType.PRODUCT_PROPERTY))
                 {
-                    indexProductDataService.indexProductPropterty(indexDocumentVO.getConfig(), indexDocumentVO.getProductProperty());
+                    indexProductDataService.indexProductPropterty(indexDocumentVO.getConfig(), indexDocumentVO.getNewIndexName(), indexDocumentVO.getProductProperty());
                     indexDocumentVO.indexDone(true);
                     getSender().tell(indexDocumentVO, getSelf());
                 }
                 else if (indexDocumentVO.getDocumentType().equals(IndexDocumentType.PRODUCT_GROUP))
                 {
-                    indexProductDataService.indexProductGroup(indexDocumentVO.getConfig(), indexDocumentVO.getProductGroup());
+                    indexProductDataService.indexProductGroup(indexDocumentVO.getConfig(), indexDocumentVO.getNewIndexName(), indexDocumentVO.getProductGroup());
                     indexDocumentVO.indexDone(true);
                     getSender().tell(indexDocumentVO, getSelf());
                 }

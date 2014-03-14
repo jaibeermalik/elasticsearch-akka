@@ -1,5 +1,7 @@
 package org.jai.search.exception;
 
+import org.jai.search.config.ElasticSearchIndexConfig;
+
 /**
  * Exception thrown in case of issues in indexing the document.
  * 
@@ -9,22 +11,16 @@ package org.jai.search.exception;
 @SuppressWarnings("serial")
 public class IndexingException extends Exception
 {
-    public IndexingException()
-    {
-    }
+    private ElasticSearchIndexConfig indexConfig;
 
-    public IndexingException(final String s)
-    {
-        super(s);
-    }
-
-    public IndexingException(final String s, final Throwable throwable)
+    public IndexingException(final ElasticSearchIndexConfig config, final String s, final Throwable throwable)
     {
         super(s, throwable);
+        this.indexConfig = config;
     }
 
-    public IndexingException(final Throwable throwable)
+    public ElasticSearchIndexConfig getIndexConfig()
     {
-        super(throwable);
+        return indexConfig;
     }
 }

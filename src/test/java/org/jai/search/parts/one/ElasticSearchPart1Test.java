@@ -125,7 +125,7 @@ public class ElasticSearchPart1Test extends AbstractSearchJUnit4SpringContextTes
         product.setPrice(BigDecimal.valueOf(5));
         product.setAvailableOn(new Date());
         
-        indexProductData.indexProduct(config, product);
+        indexProductData.indexProduct(config, null, product);
 
         assertTrue(indexProductData.isProductExists(config, productId));
         

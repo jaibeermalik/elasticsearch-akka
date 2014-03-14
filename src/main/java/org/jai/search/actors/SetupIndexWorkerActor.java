@@ -8,6 +8,13 @@ import org.jai.search.exception.IndexingException;
 import org.jai.search.index.IndexProductDataService;
 import org.jai.search.setup.SetupIndexService;
 
+import org.apache.commons.lang.StringUtils;
+import org.springframework.util.Assert;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.UntypedActor;
@@ -21,9 +28,11 @@ public class SetupIndexWorkerActor extends UntypedActor
 
     private final SetupIndexService setupIndexService;
 
-    private int totalDocumentTypesToIndex = 0;
-
-    private int totalDocumentTypesToIndexDone = 0;
+    private ElasticSearchIndexConfig config;
+    
+    private String newIndexName;
+    
+    private Map<IndexDocumentType, Boolean> documentTypesDone = new HashMap<IndexDocumentType, Boolean>();
 
     private final ActorRef workerRouter;
 
@@ -48,9 +57,13 @@ public class SetupIndexWorkerActor extends UntypedActor
             {
                 handleEachIndex(message);
             }
-            else if (message instanceof IndexingMessage)
+//            else if (message instanceof IndexingMessage)
+//            {
+//                handleIndexingStatusCheckForEachIndex(message);
+//            }
+            else if (message instanceof IndexDocumentType)
             {
-                handleIndexingStatusCheckForEachIndex(message);
+                handleIndexDocumentType(message);
             }
             else if (message instanceof Exception)
             {
@@ -61,23 +74,29 @@ public class SetupIndexWorkerActor extends UntypedActor
                 unhandled(message);
             }
         }
-        catch (final Exception e)
+        catch (final Exception ex)
         {
             // TODO: check if it needs to be handled different, not sure how much indexing for index or types is already done.
-            final IndexingException indexingException = new IndexingException(e);
-            LOG.error("Error occurred while indexing: {}", message);
-            totalDocumentTypesToIndexDone++;
+            String errorMessage = "Error occurred while indexing: " + message;
+            LOG.error(errorMessage);
+            final IndexingException indexingException = new IndexingException(config, errorMessage, ex);
             sendMessageToParent(indexingException);
         }
     }
 
+    private void handleIndexDocumentType(Object message)
+    {
+        final IndexDocumentType indexDocumentType = (IndexDocumentType) message;
+        documentTypesDone.put(indexDocumentType, true);
+        updateStateAndNotifyParentIfAllDone();
+    }
+
     private void handleException(final Object message)
     {
-        // TODO Auto-generated method stub
         final Exception ex = (Exception) message;
         if (ex instanceof DocumentTypeIndexingException)
         {
-            totalDocumentTypesToIndexDone++;
+            documentTypesDone.put(((DocumentTypeIndexingException) ex).getIndexDocumentType() , true);
             updateStateAndNotifyParentIfAllDone();
         }
         else
@@ -86,30 +105,31 @@ public class SetupIndexWorkerActor extends UntypedActor
         }
     }
 
-    private void handleIndexingStatusCheckForEachIndex(final Object message)
-    {
-        final IndexingMessage indexingMessage = (IndexingMessage) message;
-        if (IndexingMessage.DOCUMENTTYPE_DONE.equals(indexingMessage))
-        {
-            totalDocumentTypesToIndexDone++;
-            updateStateAndNotifyParentIfAllDone();
-        }
-        else
-        {
-            unhandled(message);
-        }
-    }
+//    private void handleIndexingStatusCheckForEachIndex(final Object message)
+//    {
+//        final IndexingMessage indexingMessage = (IndexingMessage) message;
+//        if (IndexingMessage.DOCUMENTTYPE_DONE.equals(indexingMessage))
+//        {
+//            totalDocumentTypesToIndexDone++;
+//            updateStateAndNotifyParentIfAllDone();
+//        }
+//        else
+//        {
+//            unhandled(message);
+//        }
+//    }
 
     private void handleEachIndex(final Object message)
     {
         LOG.debug("Worker Actor message for initial config is  received");
-        final ElasticSearchIndexConfig config = (ElasticSearchIndexConfig) message;
-        setupIndexService.reCreateIndex(config);
-        setupIndexService.updateIndexDocumentTypeMappings(config);
+
+        //Each worker is supposed to handle one index.
+        config = (ElasticSearchIndexConfig) message;
+        newIndexName = setupIndexService.createNewIndex(config);
+        Assert.isTrue(StringUtils.isNotBlank(newIndexName));
         // Loop through all document types and index relevant products for those.
         // eg. you want to index products/product group/specifications separately.
         // This only works if no parent child stuff other order indexing accordingly.
-
         // Index products
         indexDocumentType(config, IndexDocumentType.PRODUCT);
         // Index product property
@@ -118,22 +138,33 @@ public class SetupIndexWorkerActor extends UntypedActor
         indexDocumentType(config, IndexDocumentType.PRODUCT_GROUP);
     }
 
-    private void indexDocumentType(final ElasticSearchIndexConfig config, IndexDocumentType indexDocumentType)
+    private void indexDocumentType(final ElasticSearchIndexConfig config, final IndexDocumentType indexDocumentType)
     {
-        workerRouter.tell(new IndexDocumentTypeMessageVO().config(config).documentType(indexDocumentType), getSelf());
-        totalDocumentTypesToIndex++;
+        workerRouter.tell(new IndexDocumentTypeMessageVO().config(config).documentType(indexDocumentType).newIndexName(newIndexName), getSelf());
+        documentTypesDone.put(indexDocumentType, false);
     }
 
     private void updateStateAndNotifyParentIfAllDone()
     {
-        LOG.debug("Total indexing stats are: totalDocumentTypesToIndex: {}, totalDocumentTypesToIndexDone: {}", new Object[] {
-                totalDocumentTypesToIndex, totalDocumentTypesToIndexDone });
-        if (totalDocumentTypesToIndex == totalDocumentTypesToIndexDone)
+        boolean isAlldocumentTypeDone = true;
+        for (Entry<IndexDocumentType, Boolean> entry : documentTypesDone.entrySet())
+        {
+            LOG.debug("Total indexing stats are: documentType: {}, DocumentTypesStatus: {}", new Object[] {
+                    entry.getKey(), entry.getValue() });
+            if(!entry.getValue())
+            {
+                isAlldocumentTypeDone = false;
+            }
+        }
+        if (isAlldocumentTypeDone)
         {
             LOG.debug("Worker Actor message for indexing done for all products!");
-            sendMessageToParent(IndexingMessage.INDEX_DONE);
-            totalDocumentTypesToIndex = 0;
-            totalDocumentTypesToIndexDone = 0;
+            //TODO: index type should have been done. shift alising for newly created indices now.
+            setupIndexService.replaceAlias(newIndexName, config.getIndexAliasName());
+//            sendMessageToParent(config);
+            sendMessageToParent(config);
+            documentTypesDone.clear();
+
             stopTheActor();
         }
     }
@@ -148,7 +179,7 @@ public class SetupIndexWorkerActor extends UntypedActor
     private void stopTheActor()
     {
         // Stop the actors
-        //TODO: stopping this won't restart automatically, check it.
-//        getContext().stop(getSelf());
+        // TODO: stopping this won't restart automatically, check it.
+        // getContext().stop(getSelf());
     }
 }

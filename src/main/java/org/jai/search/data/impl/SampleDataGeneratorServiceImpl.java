@@ -27,11 +27,10 @@ public class SampleDataGeneratorServiceImpl implements SampleDataGeneratorServic
     private static Set<Category> hierarchicalCategories = new HashSet<Category>();
 
     private static Set<ProductProperty> productProperties = new HashSet<ProductProperty>();
-    
+
     private static List<ProductGroup> productGroups = new ArrayList<ProductGroup>();
 
     private static List<Product> products = new ArrayList<Product>();
-    
     static
     {
         hierarchicalCategories = generateHierarchicalCategoryData();
@@ -39,13 +38,13 @@ public class SampleDataGeneratorServiceImpl implements SampleDataGeneratorServic
         products = generateSampleData();
         productGroups = getProductGroupSampleData();
     }
-    
+
     @Override
     public List<ProductGroup> generateProductGroupSampleData()
     {
         return productGroups;
     }
-    
+
     private static List<Product> generateSampleData()
     {
         final List<Product> products = new ArrayList<Product>();
@@ -117,17 +116,16 @@ public class SampleDataGeneratorServiceImpl implements SampleDataGeneratorServic
         {
             final ProductProperty productProperty = new ProductProperty();
             productProperty.setId(Long.valueOf(i));
-//            if (i <= 5)
-//            {
-                productProperty.setSize(sizes[i-1]);
-                productProperty.setColor(colors[i-1]);
-                
-//            }
-//            else
-//            {
-//                productProperty.setSize(sizes[j++]);
-//                productProperty.setColor(colors[9 - i]);
-//            }
+            // if (i <= 5)
+            // {
+            productProperty.setSize(sizes[i - 1]);
+            productProperty.setColor(colors[i - 1]);
+            // }
+            // else
+            // {
+            // productProperty.setSize(sizes[j++]);
+            // productProperty.setColor(colors[9 - i]);
+            // }
             productProperties.add(productProperty);
         }
         logger.debug(productProperties.toString());
@@ -177,9 +175,9 @@ public class SampleDataGeneratorServiceImpl implements SampleDataGeneratorServic
         }
         return null;
     }
-    
+
     @Override
-    public ProductGroup generateProductGroupSampleDataFor(Long productGroupId)
+    public ProductGroup generateProductGroupSampleDataFor(final Long productGroupId)
     {
         for (final ProductGroup productGroup : productGroups)
         {
@@ -248,22 +246,20 @@ public class SampleDataGeneratorServiceImpl implements SampleDataGeneratorServic
         categories.add(blueColor);
         return categories;
     }
-    
+
     private static List<ProductGroup> getProductGroupSampleData()
     {
-        List<ProductGroup> productGroups = new ArrayList<ProductGroup>();
-        
+        final List<ProductGroup> productGroups = new ArrayList<ProductGroup>();
         int count = 0;
         for (int i = 1; i <= 10; i++)
         {
-            ProductGroup productGroup = new ProductGroup();
+            final ProductGroup productGroup = new ProductGroup();
             productGroup.setId(Long.valueOf(i));
             productGroup.setGroupTitle("groupTitle" + i);
-            productGroup.setGroupDescription("groupDescription" + i );
-            
-            while(count < i*5)
+            productGroup.setGroupDescription("groupDescription" + i);
+            while (count < i * 5)
             {
-                Product product = products.get(count);
+                final Product product = products.get(count);
                 productGroup.addProduct(product);
                 count = count + 1;
             }

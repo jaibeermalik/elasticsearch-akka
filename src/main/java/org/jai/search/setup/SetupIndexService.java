@@ -11,6 +11,8 @@ public interface SetupIndexService
     void createIndex(ElasticSearchIndexConfig searchIndexConfig);
 
     void reCreateIndex(ElasticSearchIndexConfig searchIndexConfig);
+    
+    String createNewIndex(ElasticSearchIndexConfig searchIndexConfig);
 
     void updateIndexSettings(ElasticSearchIndexConfig config, Map<String, Object> settings);
 
@@ -33,4 +35,6 @@ public interface SetupIndexService
     boolean isAliasExists(String indexAliasName);
 
     List<String> analyzeText(String indexAliasName, String analyzer, String[] tokenFilters, String text);
+
+    void replaceAlias(String newIndexName, String indexAliasName);
 }

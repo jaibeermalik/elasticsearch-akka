@@ -6,6 +6,10 @@ import org.jai.search.exception.IndexingException;
 import org.jai.search.index.IndexProductDataService;
 import org.jai.search.setup.SetupIndexService;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.UntypedActor;
@@ -19,11 +23,9 @@ public class SetupIndexMasterActor extends UntypedActor
 
     private final ActorRef workerRouter;
 
-    private int totalToIndex = 0;
-
-    private int totalToIndexDone = 0;
-
     private boolean allIndexingDone;
+    
+    private Map<ElasticSearchIndexConfig, Boolean> indexDone = new HashMap<ElasticSearchIndexConfig, Boolean>();
 
     public SetupIndexMasterActor(final SetupIndexService setupIndexService, final SampleDataGeneratorService sampleDataGeneratorService,
             final IndexProductDataService indexProductDataService)
@@ -41,6 +43,10 @@ public class SetupIndexMasterActor extends UntypedActor
         {
             handleIndexingStatusCheck(message);
         }
+        else if (message instanceof ElasticSearchIndexConfig)
+        {
+            handleIndexCompletionMessage(message);
+        }
         else if (message instanceof Exception)
         {
             handleException(message);
@@ -51,13 +57,19 @@ public class SetupIndexMasterActor extends UntypedActor
         }
     }
 
+    private void handleIndexCompletionMessage(Object message)
+    {
+        indexDone.put((ElasticSearchIndexConfig) message, true);
+        updateIndexDoneState();
+    }
+
     private void handleException(final Object message)
     {
         // TODO check if needs to be handled differently.
         final Exception ex = (Exception) message;
         if (ex instanceof IndexingException)
         {
-            totalToIndexDone++;
+            indexDone.put(((IndexingException) ex).getIndexConfig(), true);
             updateIndexDoneState();
         }
         else
@@ -77,11 +89,11 @@ public class SetupIndexMasterActor extends UntypedActor
         {
             returnAllIndicesCurrentStateAndReset();
         }
-        else if (IndexingMessage.INDEX_DONE.equals(indexingMessage))
-        {
-            totalToIndexDone++;
-            updateIndexDoneState();
-        }
+//        else if (IndexingMessage.INDEX_DONE.equals(indexingMessage))
+//        {
+//            totalToIndexDone++;
+//            updateIndexDoneState();
+//        }
         else
         {
             unhandled(message);
@@ -90,7 +102,15 @@ public class SetupIndexMasterActor extends UntypedActor
 
     private void updateIndexDoneState()
     {
-        if (totalToIndexDone == totalToIndex)
+        boolean isAllIndexDone = true;
+        for (Entry<ElasticSearchIndexConfig, Boolean> entry : indexDone.entrySet())
+        {
+            if(!entry.getValue())
+            {
+                isAllIndexDone = false;
+            }
+        }
+        if (isAllIndexDone)
         {
             allIndexingDone = true;
         }
@@ -104,10 +124,11 @@ public class SetupIndexMasterActor extends UntypedActor
         if (allIndexingDone)
         {
             allIndexingDone = false;
-            totalToIndex = 0;
-            totalToIndexDone = 0;
+            indexDone.clear();
             // TODO as it is single instance, need not to stop it.
             // getContext().stop(getSelf());
+            
+            //TODO: check when the alising should be changed.
         }
     }
 
@@ -116,7 +137,7 @@ public class SetupIndexMasterActor extends UntypedActor
         for (final ElasticSearchIndexConfig config : ElasticSearchIndexConfig.values())
         {
             workerRouter.tell(config, getSelf());
-            totalToIndex++;
+            indexDone.put(config, false);
         }
     }
 }

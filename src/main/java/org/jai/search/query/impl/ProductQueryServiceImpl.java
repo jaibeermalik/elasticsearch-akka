@@ -562,7 +562,7 @@ public class ProductQueryServiceImpl implements ProductQueryService
         productSearchResult.setTotalCount(response.getHits().totalHits());
         for (final SearchHit searchHit : response.getHits())
         {
-            if(IndexDocumentType.PRODUCT.getText().equals(searchHit.getType()))
+            if (IndexDocumentType.PRODUCT.getText().equals(searchHit.getType()))
             {
                 final Product product = new Product();
                 product.setId(Long.valueOf(searchHit.getId()));

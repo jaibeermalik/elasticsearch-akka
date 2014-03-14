@@ -90,7 +90,7 @@ public interface SampleDataGeneratorService
     Product generateProductSampleDataFor(Long productId);
 
     ProductProperty generateProductPropertySampleDataFor(Long productPropertyId);
-    
+
     ProductGroup generateProductGroupSampleDataFor(Long productGroupId);
 
     List<Product> generateProductsSampleData();

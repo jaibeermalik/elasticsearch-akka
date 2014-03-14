@@ -19,17 +19,23 @@ public class IndexDocumentVO
     private Product product;
 
     private ProductProperty productProperty;
-    
+
     private ProductGroup productGroup;
 
     private boolean indexDone;
+    
+    private String newIndexName;
 
     public IndexDocumentVO config(final ElasticSearchIndexConfig elasticSearchIndexConfig)
     {
         this.config = elasticSearchIndexConfig;
         return this;
     }
-
+    public IndexDocumentVO newIndexName(final String indexName)
+    {
+        this.newIndexName = indexName;
+        return this;
+    }
     public IndexDocumentVO documentType(final IndexDocumentType documentType)
     {
         this.documentType = documentType;
@@ -41,13 +47,13 @@ public class IndexDocumentVO
         this.product = product;
         return this;
     }
-    
+
     public IndexDocumentVO productGroup(final ProductGroup productGroup)
     {
         this.productGroup = productGroup;
         return this;
     }
-    
+
     public ProductProperty getProductProperty()
     {
         return productProperty;
@@ -99,6 +105,11 @@ public class IndexDocumentVO
     public IndexDocumentType getDocumentType()
     {
         return documentType;
+    }
+    
+    public String getNewIndexName()
+    {
+        return newIndexName;
     }
 
     @Override

@@ -1,5 +1,7 @@
 package org.jai.search.exception;
 
+import org.jai.search.config.IndexDocumentType;
+
 /**
  * Exception thrown in case of issues in indexing the document.
  * 
@@ -9,22 +11,16 @@ package org.jai.search.exception;
 @SuppressWarnings("serial")
 public class DocumentTypeIndexingException extends Exception
 {
-    public DocumentTypeIndexingException()
-    {
-    }
+    private IndexDocumentType indexDocumentType;
 
-    public DocumentTypeIndexingException(final String s)
-    {
-        super(s);
-    }
-
-    public DocumentTypeIndexingException(final String s, final Throwable throwable)
+    public DocumentTypeIndexingException(final IndexDocumentType indexDocumentType, final String s, final Throwable throwable)
     {
         super(s, throwable);
+        this.indexDocumentType = indexDocumentType;
     }
 
-    public DocumentTypeIndexingException(final Throwable throwable)
+    public IndexDocumentType getIndexDocumentType()
     {
-        super(throwable);
+        return indexDocumentType;
     }
 }

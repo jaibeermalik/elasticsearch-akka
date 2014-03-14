@@ -14,6 +14,7 @@ import org.jai.search.model.SearchFacetName;
 import org.jai.search.model.Specification;
 import org.jai.search.util.SearchDateUtils;
 
+import org.apache.commons.lang.StringUtils;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequestBuilder;
@@ -53,7 +54,7 @@ public class IndexProductDataServiceImpl implements IndexProductDataService
         {
             try
             {
-                requests.add(getIndexRequestBuilderForAProduct(product, config));
+                requests.add(getIndexRequestBuilderForAProduct(product, config.getIndexAliasName(), config.getDocumentType()));
             }
             catch (final Exception ex)
             {
@@ -65,11 +66,36 @@ public class IndexProductDataServiceImpl implements IndexProductDataService
     }
 
     @Override
-    public void indexProduct(final ElasticSearchIndexConfig config, final Product product)
+    public void indexProduct(ElasticSearchIndexConfig config, String indexName, Product product)
     {
+        String indexNameUsed = indexName; 
+        if(StringUtils.isBlank(indexName))
+        {
+            indexNameUsed = config.getIndexAliasName();
+        }
         try
         {
-            getIndexRequestBuilderForAProduct(product, config).get();
+            getIndexRequestBuilderForAProduct(product, indexNameUsed, config.getDocumentType()).get();
+        }
+        catch (final Exception ex)
+        {
+            logger.error("Error occurred while creating index document for product.", ex);
+            throw new RuntimeException(ex);
+        }
+    }
+    
+    @Override
+    public void indexProductPropterty(final ElasticSearchIndexConfig config,  String indexName, final ProductProperty productProperty)
+    {
+        String indexNameUsed = indexName; 
+        if(StringUtils.isBlank(indexName))
+        {
+            indexNameUsed = config.getIndexAliasName();
+        }
+        try
+        {
+            // To parent-child for now.
+            getIndexRequestBuilderForAProductProperty(null, productProperty, config, indexNameUsed).get();
         }
         catch (final Exception ex)
         {
@@ -79,26 +105,17 @@ public class IndexProductDataServiceImpl implements IndexProductDataService
     }
 
     @Override
-    public void indexProductPropterty(final ElasticSearchIndexConfig config, final ProductProperty productProperty)
+    public void indexProductGroup(final ElasticSearchIndexConfig config,  String indexName, final ProductGroup productGroup)
     {
+        String indexNameUsed = indexName; 
+        if(StringUtils.isBlank(indexName))
+        {
+            indexNameUsed = config.getIndexAliasName();
+        }
         try
         {
-            //To parent-child for now.
-            getIndexRequestBuilderForAProductProperty(null, productProperty, config).get();
-        }
-        catch (final Exception ex)
-        {
-            logger.error("Error occurred while creating index document for product.", ex);
-            throw new RuntimeException(ex);
-        }
-    }
-    @Override
-    public void indexProductGroup(ElasticSearchIndexConfig config, ProductGroup productGroup)
-    {
-        try
-        {
-            //To parent-child for now.
-            getIndexRequestBuilderForAProductGroup(productGroup, config).get();
+            // To parent-child for now.
+            getIndexRequestBuilderForAProductGroup(productGroup, config, indexNameUsed).get();
         }
         catch (final Exception ex)
         {
@@ -129,11 +146,11 @@ public class IndexProductDataServiceImpl implements IndexProductDataService
             final List<IndexRequestBuilder> requests = new ArrayList<IndexRequestBuilder>();
             try
             {
-                requests.add(getIndexRequestBuilderForAProductGroup(productGroup, config));
+                requests.add(getIndexRequestBuilderForAProductGroup(productGroup, config, null));
                 // Index all products data also with parent
                 for (final Product product : productGroup.getProducts())
                 {
-                    final IndexRequestBuilder indexRequestBuilderForAProduct = getIndexRequestBuilderForAProduct(product, config);
+                    final IndexRequestBuilder indexRequestBuilderForAProduct = getIndexRequestBuilderForAProduct(product, config.getIndexAliasName(), config.getDocumentType());
                     if (parentRelationShip)
                     {
                         indexRequestBuilderForAProduct.setParent(String.valueOf(productGroup.getId()));
@@ -142,7 +159,7 @@ public class IndexProductDataServiceImpl implements IndexProductDataService
                     for (final ProductProperty productProperty : product.getProductProperties())
                     {
                         final IndexRequestBuilder indexRequestBuilderForAProductProperty = getIndexRequestBuilderForAProductProperty(
-                                product, productProperty, config);
+                                product, productProperty, config, null);
                         if (parentRelationShip)
                         {
                             indexRequestBuilderForAProductProperty.setParent(String.valueOf(product.getId()));
@@ -162,36 +179,37 @@ public class IndexProductDataServiceImpl implements IndexProductDataService
         }
     }
 
-    private IndexRequestBuilder getIndexRequestBuilderForAProduct(final Product product, final ElasticSearchIndexConfig config)
+    private IndexRequestBuilder getIndexRequestBuilderForAProduct(final Product product, final String indexName, String documentType )
             throws IOException
     {
         final XContentBuilder contentBuilder = getXContentBuilderForAProduct(product);
-        final IndexRequestBuilder indexRequestBuilder = searchClientService.getClient().prepareIndex(config.getIndexAliasName(),
-                config.getDocumentType(), String.valueOf(product.getId()));
+        final IndexRequestBuilder indexRequestBuilder = searchClientService.getClient().prepareIndex(indexName,
+                documentType, String.valueOf(product.getId()));
         indexRequestBuilder.setSource(contentBuilder);
         return indexRequestBuilder;
     }
 
     private IndexRequestBuilder getIndexRequestBuilderForAProductProperty(final Product product, final ProductProperty productProperty,
-            final ElasticSearchIndexConfig config) throws IOException
+            final ElasticSearchIndexConfig config, String indexNameUsed) throws IOException
     {
         final XContentBuilder contentBuilder = getXContentBuilderForAProductProperty(productProperty);
-        final String documentId = (product !=null ? String.valueOf(product.getId()) : "") + String.valueOf(productProperty.getId()) + "0000";
+        final String documentId = (product != null ? String.valueOf(product.getId()) : "") + String.valueOf(productProperty.getId())
+                + "0000";
         logger.debug("Generated XContentBuilder for document id {} is {}",
                 new Object[] { documentId, contentBuilder.prettyPrint().string() });
-        final IndexRequestBuilder indexRequestBuilder = searchClientService.getClient().prepareIndex(config.getIndexAliasName(),
+        final IndexRequestBuilder indexRequestBuilder = searchClientService.getClient().prepareIndex(indexNameUsed,
                 config.getPropertiesDocumentType(), documentId);
         indexRequestBuilder.setSource(contentBuilder);
         return indexRequestBuilder;
     }
 
     private IndexRequestBuilder getIndexRequestBuilderForAProductGroup(final ProductGroup productGroup,
-            final ElasticSearchIndexConfig config) throws IOException
+            final ElasticSearchIndexConfig config, String indexName) throws IOException
     {
         final XContentBuilder contentBuilder = getXContentBuilderForAProductGroup(productGroup);
         logger.debug("Generated XContentBuilder for document id {} is {}", new Object[] { productGroup.getId(),
                 contentBuilder.prettyPrint().string() });
-        final IndexRequestBuilder indexRequestBuilder = searchClientService.getClient().prepareIndex(config.getIndexAliasName(),
+        final IndexRequestBuilder indexRequestBuilder = searchClientService.getClient().prepareIndex(indexName,
                 config.getGroupDocumentType(), String.valueOf(productGroup.getId()));
         indexRequestBuilder.setSource(contentBuilder);
         return indexRequestBuilder;

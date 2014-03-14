@@ -4,8 +4,9 @@ import static akka.actor.SupervisorStrategy.escalate;
 import static akka.actor.SupervisorStrategy.restart;
 import static akka.actor.SupervisorStrategy.stop;
 
+import org.jai.search.config.IndexDocumentType;
 import org.jai.search.data.SampleDataGeneratorService;
-import org.jai.search.exception.DataGenerationException;
+import org.jai.search.exception.DocumentTypeDataGenerationException;
 import org.jai.search.exception.DocumentGenerationException;
 import org.jai.search.exception.DocumentTypeIndexingException;
 import org.jai.search.exception.IndexDataException;
@@ -33,13 +34,13 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
 
     private final ActorRef documentGeneratorWorkerRouter;
 
-    private final ActorRef indexDataWorkerRouter;
+    private final ActorRef indexDocumentWorkerRouter;
 
     private int totalDocumentsToIndex = 0;
 
     private int totalDocumentsToIndexDone = 0;
 
-    private int totalDocumentTypesHandling = 0;
+    private IndexDocumentType indexDocumentType;
 
     public SetupDocumentTypeWorkerActor(final SampleDataGeneratorService sampleDataGeneratorService,
             final IndexProductDataService indexProductDataService)
@@ -48,10 +49,10 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
                 "dataGeneratorWorker");
         documentGeneratorWorkerRouter = getContext().actorOf(
                 Props.create(DocumentGeneratorWorkerActor.class, sampleDataGeneratorService).withRouter(new FromConfig())
-                        .withDispatcher("documentGenerateAndIndexWorkerActorDispatcher"), "documentGeneratorWorker");
-        indexDataWorkerRouter = getContext().actorOf(
+                        .withDispatcher("documentGenerateWorkerActorDispatcher"), "documentGeneratorWorker");
+        indexDocumentWorkerRouter = getContext().actorOf(
                 Props.create(IndexProductDataWorkerActor.class, indexProductDataService).withRouter(new FromConfig())
-                        .withDispatcher("documentGenerateAndIndexWorkerActorDispatcher"), "indexProductDataWorker");
+                        .withDispatcher("indexDocumentWorkerActorDispatcher"), "indexDocumentWorker");
     }
 
     private static SupervisorStrategy strategy = new OneForOneStrategy(10, Duration.create("1 minute"),
@@ -60,7 +61,7 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
                 @Override
                 public Directive apply(final Throwable t)
                 {
-                    if (t instanceof DataGenerationException)
+                    if (t instanceof DocumentTypeDataGenerationException)
                     {
                         return restart();
                     }
@@ -122,13 +123,13 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
                 unhandled(message);
             }
         }
-        catch (final Exception e)
+        catch (final Exception exception)
         {
             // TODO: check if need to handle it differently
-            final DocumentTypeIndexingException documentTypeIndexingException = new DocumentTypeIndexingException(e);
-            LOG.error("Error occured while indexing document type: {}", message);
-            // TODO: check failures needs to be handled differently.
-            totalDocumentTypesHandling--;
+            String errorMessage = "Error occured while indexing document type: " + message;
+            LOG.error(errorMessage);
+            final DocumentTypeIndexingException documentTypeIndexingException = new DocumentTypeIndexingException(indexDocumentType,
+                    errorMessage, exception);
             sendMessageToParent(documentTypeIndexingException);
         }
     }
@@ -136,13 +137,14 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
     private void handleExceptionInChildActors(final Object message)
     {
         final Exception ex = (Exception) message;
-        if (ex instanceof DataGenerationException)
+        if (ex instanceof DocumentTypeDataGenerationException)
         {
             // issue in generating data itself for a document type. As each worker only handling one document type, tell parent that it is
             // done.
             // TODO: check proper handling
-            totalDocumentTypesHandling--;
-            updateStateAndResetIfAllDone();
+            final DocumentTypeIndexingException documentTypeIndexingException = new DocumentTypeIndexingException(indexDocumentType,
+                    "Data generation failed, failing whole document type itself!", ex);
+            sendMessageToParent(documentTypeIndexingException);
         }
         else if (ex instanceof DocumentGenerationException)
         {
@@ -169,7 +171,8 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
         if (!indexDocumentVO.isIndexDone())
         {
             // Document not generated yet
-            if (indexDocumentVO.getProduct() == null && indexDocumentVO.getProductProperty() == null && indexDocumentVO.getProductGroup() == null)
+            if (indexDocumentVO.getProduct() == null && indexDocumentVO.getProductProperty() == null
+                    && indexDocumentVO.getProductGroup() == null)
             {
                 documentGeneratorWorkerRouter.tell(indexDocumentVO, getSelf());
                 totalDocumentsToIndex++;
@@ -178,7 +181,7 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
             // Document generated, index it.
             else
             {
-                indexDataWorkerRouter.tell(indexDocumentVO, getSelf());
+                indexDocumentWorkerRouter.tell(indexDocumentVO, getSelf());
             }
         }
         else
@@ -191,8 +194,9 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
     private void handleDocumentTypeForDataGeneration(final Object message)
     {
         final IndexDocumentTypeMessageVO indexDocumentTypeMessageVO = (IndexDocumentTypeMessageVO) message;
+        // Each actor is supposed to handle single document type.
+        indexDocumentType = indexDocumentTypeMessageVO.getIndexDocumentType();
         dataGeneratorWorkerRouter.tell(indexDocumentTypeMessageVO, getSelf());
-        totalDocumentTypesHandling++;
     }
 
     private void updateStateAndResetIfAllDone()
@@ -202,17 +206,14 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
         if (totalDocumentsToIndex == totalDocumentsToIndexDone)
         {
             LOG.debug("All products indexing done for total document types {} sending message {} to parent!", new Object[] {
-                    totalDocumentTypesHandling, IndexingMessage.DOCUMENTTYPE_DONE });
+                    indexDocumentType, indexDocumentType });
             // Find parent actor in the hierarchy.
             // akka://SearchIndexingSystem/user/setupIndexMasterActor/setupIndexWorkerActor/$a
             // Send the document type done for all the handling types, for now total products done means all types done, change it.
-            for (int i = 0; i < totalDocumentTypesHandling; i++)
-            {
-                sendMessageToParent(IndexingMessage.DOCUMENTTYPE_DONE);
-            }
+            //                sendMessageToParent(IndexingMessage.DOCUMENTTYPE_DONE);
+            sendMessageToParent(indexDocumentType);
             totalDocumentsToIndex = 0;
             totalDocumentsToIndexDone = 0;
-            totalDocumentTypesHandling = 0;
             stopTheActor();
         }
     }
@@ -220,8 +221,8 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
     private void stopTheActor()
     {
         // Stop the actors
-        //TODO: check if message order processing etc. allow this right way.
-//        getContext().stop(getSelf());
+        // TODO: check if message order processing etc. allow this right way.
+        // getContext().stop(getSelf());
     }
 
     private void sendMessageToParent(final Object message)
