@@ -6,8 +6,8 @@ import static akka.actor.SupervisorStrategy.stop;
 
 import org.jai.search.config.IndexDocumentType;
 import org.jai.search.data.SampleDataGeneratorService;
-import org.jai.search.exception.DocumentTypeDataGenerationException;
 import org.jai.search.exception.DocumentGenerationException;
+import org.jai.search.exception.DocumentTypeDataGenerationException;
 import org.jai.search.exception.DocumentTypeIndexingException;
 import org.jai.search.exception.IndexDataException;
 import org.jai.search.index.IndexProductDataService;
@@ -126,7 +126,7 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
         catch (final Exception exception)
         {
             // TODO: check if need to handle it differently
-            String errorMessage = "Error occured while indexing document type: " + message;
+            final String errorMessage = "Error occured while indexing document type: " + message;
             LOG.error(errorMessage);
             final DocumentTypeIndexingException documentTypeIndexingException = new DocumentTypeIndexingException(indexDocumentType,
                     errorMessage, exception);
@@ -210,7 +210,7 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
             // Find parent actor in the hierarchy.
             // akka://SearchIndexingSystem/user/setupIndexMasterActor/setupIndexWorkerActor/$a
             // Send the document type done for all the handling types, for now total products done means all types done, change it.
-            //                sendMessageToParent(IndexingMessage.DOCUMENTTYPE_DONE);
+            // sendMessageToParent(IndexingMessage.DOCUMENTTYPE_DONE);
             sendMessageToParent(indexDocumentType);
             totalDocumentsToIndex = 0;
             totalDocumentsToIndexDone = 0;

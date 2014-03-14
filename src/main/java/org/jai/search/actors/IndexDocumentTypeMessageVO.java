@@ -8,7 +8,7 @@ public class IndexDocumentTypeMessageVO
     private ElasticSearchIndexConfig config;
 
     private IndexDocumentType indexDocumentType;
-    
+
     private String newIndexName;
 
     public IndexDocumentTypeMessageVO config(final ElasticSearchIndexConfig elasticSearchIndexConfig)
@@ -22,7 +22,7 @@ public class IndexDocumentTypeMessageVO
         this.indexDocumentType = indexDocumentType;
         return this;
     }
-    
+
     public IndexDocumentTypeMessageVO newIndexName(final String indexName)
     {
         this.newIndexName = indexName;
@@ -38,7 +38,7 @@ public class IndexDocumentTypeMessageVO
     {
         return indexDocumentType;
     }
-    
+
     public String getNewIndexName()
     {
         return newIndexName;

@@ -47,8 +47,8 @@ public class DataGeneratorWorkerActor extends UntypedActor
             }
             catch (final Exception ex)
             {
-                String errorMessage = "Error occurred while generating data for message" + message;
-                LOG.error(errorMessage);
+                final String errorMessage = "Error occurred while generating data for message" + message;
+                LOG.error(ex, errorMessage);
                 final DocumentTypeDataGenerationException dataGenerationException = new DocumentTypeDataGenerationException(
                         indexDocumentTypeMessageVO.getIndexDocumentType(), errorMessage, ex);
                 getSender().tell(dataGenerationException, getSelf());
@@ -60,7 +60,7 @@ public class DataGeneratorWorkerActor extends UntypedActor
         }
     }
 
-    private void generateData(final IndexDocumentTypeMessageVO indexDocumentTypeMessageVO, int size)
+    private void generateData(final IndexDocumentTypeMessageVO indexDocumentTypeMessageVO, final int size)
     {
         for (int i = 1; i <= size; i++)
         {

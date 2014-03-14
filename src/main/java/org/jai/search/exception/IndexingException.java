@@ -11,7 +11,7 @@ import org.jai.search.config.ElasticSearchIndexConfig;
 @SuppressWarnings("serial")
 public class IndexingException extends Exception
 {
-    private ElasticSearchIndexConfig indexConfig;
+    private final ElasticSearchIndexConfig indexConfig;
 
     public IndexingException(final ElasticSearchIndexConfig config, final String s, final Throwable throwable)
     {

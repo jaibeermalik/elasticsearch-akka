@@ -10,6 +10,7 @@ import org.jai.search.model.ProductGroup;
 import org.jai.search.setup.IndexSchemaBuilder;
 import org.jai.search.setup.SetupIndexService;
 
+import org.apache.commons.lang.StringUtils;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeRequestBuilder;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
@@ -55,9 +56,9 @@ public class SetupIndexServiceImpl implements SetupIndexService
         {
             reCreateIndex(config);
             // add mappings
-            updateDocumentTypeMapping(config, config.getGroupDocumentType(), parentRelationship);
-            updateDocumentTypeMapping(config, config.getDocumentType(), parentRelationship);
-            updateDocumentTypeMapping(config, config.getPropertiesDocumentType(), parentRelationship);
+            updateDocumentTypeMapping(config, null, config.getGroupDocumentType(), parentRelationship);
+            updateDocumentTypeMapping(config, null, config.getDocumentType(), parentRelationship);
+            updateDocumentTypeMapping(config, null, config.getPropertiesDocumentType(), parentRelationship);
             // index all data
             indexProductData.indexAllProducts(config, sampleDataGenerator.generateProductsSampleData());
         }
@@ -82,9 +83,9 @@ public class SetupIndexServiceImpl implements SetupIndexService
         // create indices
         createGivenIndex(config, suffixedIndexName, true);
     }
-    
+
     @Override
-    public String createNewIndex(ElasticSearchIndexConfig config)
+    public String createNewIndex(final ElasticSearchIndexConfig config)
     {
         final Date date = new Date();
         final String suffixedIndexName = getSuffixedIndexName(config.getIndexAliasName(), date);
@@ -95,8 +96,7 @@ public class SetupIndexServiceImpl implements SetupIndexService
         }
         // create indices
         createGivenIndex(config, suffixedIndexName, false);
-        
-        updateIndexDocumentTypeMappings(config);
+        updateIndexDocumentTypeMappings(config, suffixedIndexName);
         return suffixedIndexName;
     }
 
@@ -107,7 +107,7 @@ public class SetupIndexServiceImpl implements SetupIndexService
         createGivenIndex(config, suffixedIndexName, true);
     }
 
-    private void createGivenIndex(final ElasticSearchIndexConfig config, final String indexName, boolean createAlias)
+    private void createGivenIndex(final ElasticSearchIndexConfig config, final String indexName, final boolean createAlias)
     {
         final Client client = searchClientService.getClient();
         CreateIndexRequestBuilder createIndexRequestBuilder;
@@ -122,7 +122,7 @@ public class SetupIndexServiceImpl implements SetupIndexService
         }
         // update mapping on server
         createIndexRequestBuilder.execute().actionGet();
-        if(createAlias)
+        if (createAlias)
         {
             createAlias(config.getIndexAliasName(), indexName);
         }
@@ -136,9 +136,9 @@ public class SetupIndexServiceImpl implements SetupIndexService
         // clean up old alias
         cleanupExistingOldIndex(indexName, aliasName);
     }
-    
+
     @Override
-    public void replaceAlias(String newIndexName, String indexAliasName)
+    public void replaceAlias(final String newIndexName, final String indexAliasName)
     {
         createAlias(indexAliasName, newIndexName);
     }
@@ -201,11 +201,17 @@ public class SetupIndexServiceImpl implements SetupIndexService
     }
 
     @Override
-    public void updateDocumentTypeMapping(final ElasticSearchIndexConfig config, final String documentType, final boolean parentRelationship)
+    public void updateDocumentTypeMapping(final ElasticSearchIndexConfig config, final String indexName, final String documentType,
+            final boolean parentRelationship)
     {
+        String usedIndexName = indexName;
+        if (StringUtils.isBlank(indexName))
+        {
+            usedIndexName = config.getIndexAliasName();
+        }
         try
         {
-            searchClientService.getClient().admin().indices().preparePutMapping(config.getIndexAliasName()).setType(documentType)
+            searchClientService.getClient().admin().indices().preparePutMapping(usedIndexName).setType(documentType)
                     .setSource(new IndexSchemaBuilder().getDocumentTypeMapping(config, documentType, parentRelationship)).get();
         }
         catch (final IOException e)
@@ -215,12 +221,12 @@ public class SetupIndexServiceImpl implements SetupIndexService
     }
 
     @Override
-    public void updateIndexDocumentTypeMappings(final ElasticSearchIndexConfig config)
+    public void updateIndexDocumentTypeMappings(final ElasticSearchIndexConfig config, final String indexName)
     {
         // add mappings, no parent-child for now
-        updateDocumentTypeMapping(config, config.getGroupDocumentType(), false);
-        updateDocumentTypeMapping(config, config.getDocumentType(), false);
-        updateDocumentTypeMapping(config, config.getPropertiesDocumentType(), false);
+        updateDocumentTypeMapping(config, indexName, config.getGroupDocumentType(), false);
+        updateDocumentTypeMapping(config, indexName, config.getDocumentType(), false);
+        updateDocumentTypeMapping(config, indexName, config.getPropertiesDocumentType(), false);
     }
 
     @Override

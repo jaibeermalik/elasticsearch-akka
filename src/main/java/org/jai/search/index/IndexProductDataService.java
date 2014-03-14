@@ -12,7 +12,7 @@ public interface IndexProductDataService
     void indexAllProducts(ElasticSearchIndexConfig config, List<Product> products);
 
     void indexProduct(ElasticSearchIndexConfig config, String indexName, Product product);
-    
+
     void indexProductPropterty(ElasticSearchIndexConfig config, String indexName, ProductProperty productProperty);
 
     boolean isProductExists(ElasticSearchIndexConfig config, Long productId);

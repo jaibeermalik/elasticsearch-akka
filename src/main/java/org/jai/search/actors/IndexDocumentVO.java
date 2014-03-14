@@ -23,7 +23,7 @@ public class IndexDocumentVO
     private ProductGroup productGroup;
 
     private boolean indexDone;
-    
+
     private String newIndexName;
 
     public IndexDocumentVO config(final ElasticSearchIndexConfig elasticSearchIndexConfig)
@@ -31,11 +31,13 @@ public class IndexDocumentVO
         this.config = elasticSearchIndexConfig;
         return this;
     }
+
     public IndexDocumentVO newIndexName(final String indexName)
     {
         this.newIndexName = indexName;
         return this;
     }
+
     public IndexDocumentVO documentType(final IndexDocumentType documentType)
     {
         this.documentType = documentType;
@@ -106,7 +108,7 @@ public class IndexDocumentVO
     {
         return documentType;
     }
-    
+
     public String getNewIndexName()
     {
         return newIndexName;

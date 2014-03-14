@@ -63,7 +63,7 @@ public class DocumentGeneratorWorkerActor extends UntypedActor
             }
             catch (final Exception e)
             {
-                LOG.error("Error occurred while generating document for message: {}", message);
+                LOG.error(e, "Error occurred while generating document for message: {}", message);
                 final DocumentGenerationException documentGenerationException = new DocumentGenerationException(e);
                 getSender().tell(documentGenerationException, getSelf());
             }

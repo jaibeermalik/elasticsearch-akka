@@ -108,7 +108,7 @@ public class ElasticSearchPart1Test extends AbstractSearchJUnit4SpringContextTes
         setupIndexService.createIndex(config);
 
         //create new index document type
-        setupIndexService.updateDocumentTypeMapping(config, "testDocumentType", false);
+        setupIndexService.updateDocumentTypeMapping(config, null, "testDocumentType", false);
     }
     
     @Test

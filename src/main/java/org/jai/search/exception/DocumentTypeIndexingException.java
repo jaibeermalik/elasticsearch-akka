@@ -11,7 +11,7 @@ import org.jai.search.config.IndexDocumentType;
 @SuppressWarnings("serial")
 public class DocumentTypeIndexingException extends Exception
 {
-    private IndexDocumentType indexDocumentType;
+    private final IndexDocumentType indexDocumentType;
 
     public DocumentTypeIndexingException(final IndexDocumentType indexDocumentType, final String s, final Throwable throwable)
     {

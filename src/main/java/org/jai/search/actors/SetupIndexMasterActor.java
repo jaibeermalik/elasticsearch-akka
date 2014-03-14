@@ -24,8 +24,8 @@ public class SetupIndexMasterActor extends UntypedActor
     private final ActorRef workerRouter;
 
     private boolean allIndexingDone;
-    
-    private Map<ElasticSearchIndexConfig, Boolean> indexDone = new HashMap<ElasticSearchIndexConfig, Boolean>();
+
+    private final Map<ElasticSearchIndexConfig, Boolean> indexDone = new HashMap<ElasticSearchIndexConfig, Boolean>();
 
     public SetupIndexMasterActor(final SetupIndexService setupIndexService, final SampleDataGeneratorService sampleDataGeneratorService,
             final IndexProductDataService indexProductDataService)
@@ -57,7 +57,7 @@ public class SetupIndexMasterActor extends UntypedActor
         }
     }
 
-    private void handleIndexCompletionMessage(Object message)
+    private void handleIndexCompletionMessage(final Object message)
     {
         indexDone.put((ElasticSearchIndexConfig) message, true);
         updateIndexDoneState();
@@ -89,11 +89,11 @@ public class SetupIndexMasterActor extends UntypedActor
         {
             returnAllIndicesCurrentStateAndReset();
         }
-//        else if (IndexingMessage.INDEX_DONE.equals(indexingMessage))
-//        {
-//            totalToIndexDone++;
-//            updateIndexDoneState();
-//        }
+        // else if (IndexingMessage.INDEX_DONE.equals(indexingMessage))
+        // {
+        // totalToIndexDone++;
+        // updateIndexDoneState();
+        // }
         else
         {
             unhandled(message);
@@ -103,9 +103,9 @@ public class SetupIndexMasterActor extends UntypedActor
     private void updateIndexDoneState()
     {
         boolean isAllIndexDone = true;
-        for (Entry<ElasticSearchIndexConfig, Boolean> entry : indexDone.entrySet())
+        for (final Entry<ElasticSearchIndexConfig, Boolean> entry : indexDone.entrySet())
         {
-            if(!entry.getValue())
+            if (!entry.getValue())
             {
                 isAllIndexDone = false;
             }
@@ -127,8 +127,7 @@ public class SetupIndexMasterActor extends UntypedActor
             indexDone.clear();
             // TODO as it is single instance, need not to stop it.
             // getContext().stop(getSelf());
-            
-            //TODO: check when the alising should be changed.
+            // TODO: check when the alising should be changed.
         }
     }
 

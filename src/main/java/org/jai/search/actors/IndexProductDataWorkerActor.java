@@ -34,19 +34,22 @@ public class IndexProductDataWorkerActor extends UntypedActor
                     // {
                     // throw new RuntimeException("blah blah");
                     // }
-                    indexProductDataService.indexProduct(indexDocumentVO.getConfig(), indexDocumentVO.getNewIndexName(), indexDocumentVO.getProduct());
+                    indexProductDataService.indexProduct(indexDocumentVO.getConfig(), indexDocumentVO.getNewIndexName(),
+                            indexDocumentVO.getProduct());
                     indexDocumentVO.indexDone(true);
                     getSender().tell(indexDocumentVO, getSelf());
                 }
                 else if (indexDocumentVO.getDocumentType().equals(IndexDocumentType.PRODUCT_PROPERTY))
                 {
-                    indexProductDataService.indexProductPropterty(indexDocumentVO.getConfig(), indexDocumentVO.getNewIndexName(), indexDocumentVO.getProductProperty());
+                    indexProductDataService.indexProductPropterty(indexDocumentVO.getConfig(), indexDocumentVO.getNewIndexName(),
+                            indexDocumentVO.getProductProperty());
                     indexDocumentVO.indexDone(true);
                     getSender().tell(indexDocumentVO, getSelf());
                 }
                 else if (indexDocumentVO.getDocumentType().equals(IndexDocumentType.PRODUCT_GROUP))
                 {
-                    indexProductDataService.indexProductGroup(indexDocumentVO.getConfig(), indexDocumentVO.getNewIndexName(), indexDocumentVO.getProductGroup());
+                    indexProductDataService.indexProductGroup(indexDocumentVO.getConfig(), indexDocumentVO.getNewIndexName(),
+                            indexDocumentVO.getProductGroup());
                     indexDocumentVO.indexDone(true);
                     getSender().tell(indexDocumentVO, getSelf());
                 }
@@ -57,7 +60,7 @@ public class IndexProductDataWorkerActor extends UntypedActor
             }
             catch (final Exception e)
             {
-                LOG.error("Error occured while indexing document data for message: {}", message);
+                LOG.error(e, "Error occured while indexing document data for message: {}", message);
                 final IndexDataException indexDataException = new IndexDataException(e);
                 getSender().tell(indexDataException, getSelf());
             }

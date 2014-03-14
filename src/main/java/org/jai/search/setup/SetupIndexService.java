@@ -11,14 +11,14 @@ public interface SetupIndexService
     void createIndex(ElasticSearchIndexConfig searchIndexConfig);
 
     void reCreateIndex(ElasticSearchIndexConfig searchIndexConfig);
-    
+
     String createNewIndex(ElasticSearchIndexConfig searchIndexConfig);
 
     void updateIndexSettings(ElasticSearchIndexConfig config, Map<String, Object> settings);
 
-    void updateDocumentTypeMapping(ElasticSearchIndexConfig config, String documentType, boolean parentRelationship);
+    void updateDocumentTypeMapping(ElasticSearchIndexConfig config, String indexName, String documentType, boolean parentRelationship);
 
-    void updateIndexDocumentTypeMappings(ElasticSearchIndexConfig config);
+    void updateIndexDocumentTypeMappings(ElasticSearchIndexConfig config, String indexName);
 
     void setupAllIndices(boolean parentRelationship);
 

@@ -29,10 +29,10 @@ public class SetupIndexWorkerActor extends UntypedActor
     private final SetupIndexService setupIndexService;
 
     private ElasticSearchIndexConfig config;
-    
+
     private String newIndexName;
-    
-    private Map<IndexDocumentType, Boolean> documentTypesDone = new HashMap<IndexDocumentType, Boolean>();
+
+    private final Map<IndexDocumentType, Boolean> documentTypesDone = new HashMap<IndexDocumentType, Boolean>();
 
     private final ActorRef workerRouter;
 
@@ -57,10 +57,10 @@ public class SetupIndexWorkerActor extends UntypedActor
             {
                 handleEachIndex(message);
             }
-//            else if (message instanceof IndexingMessage)
-//            {
-//                handleIndexingStatusCheckForEachIndex(message);
-//            }
+            // else if (message instanceof IndexingMessage)
+            // {
+            // handleIndexingStatusCheckForEachIndex(message);
+            // }
             else if (message instanceof IndexDocumentType)
             {
                 handleIndexDocumentType(message);
@@ -77,14 +77,14 @@ public class SetupIndexWorkerActor extends UntypedActor
         catch (final Exception ex)
         {
             // TODO: check if it needs to be handled different, not sure how much indexing for index or types is already done.
-            String errorMessage = "Error occurred while indexing: " + message;
-            LOG.error(errorMessage);
+            final String errorMessage = "Error occurred while indexing: " + message;
+            LOG.error(ex, errorMessage);
             final IndexingException indexingException = new IndexingException(config, errorMessage, ex);
             sendMessageToParent(indexingException);
         }
     }
 
-    private void handleIndexDocumentType(Object message)
+    private void handleIndexDocumentType(final Object message)
     {
         final IndexDocumentType indexDocumentType = (IndexDocumentType) message;
         documentTypesDone.put(indexDocumentType, true);
@@ -96,7 +96,7 @@ public class SetupIndexWorkerActor extends UntypedActor
         final Exception ex = (Exception) message;
         if (ex instanceof DocumentTypeIndexingException)
         {
-            documentTypesDone.put(((DocumentTypeIndexingException) ex).getIndexDocumentType() , true);
+            documentTypesDone.put(((DocumentTypeIndexingException) ex).getIndexDocumentType(), true);
             updateStateAndNotifyParentIfAllDone();
         }
         else
@@ -105,25 +105,23 @@ public class SetupIndexWorkerActor extends UntypedActor
         }
     }
 
-//    private void handleIndexingStatusCheckForEachIndex(final Object message)
-//    {
-//        final IndexingMessage indexingMessage = (IndexingMessage) message;
-//        if (IndexingMessage.DOCUMENTTYPE_DONE.equals(indexingMessage))
-//        {
-//            totalDocumentTypesToIndexDone++;
-//            updateStateAndNotifyParentIfAllDone();
-//        }
-//        else
-//        {
-//            unhandled(message);
-//        }
-//    }
-
+    // private void handleIndexingStatusCheckForEachIndex(final Object message)
+    // {
+    // final IndexingMessage indexingMessage = (IndexingMessage) message;
+    // if (IndexingMessage.DOCUMENTTYPE_DONE.equals(indexingMessage))
+    // {
+    // totalDocumentTypesToIndexDone++;
+    // updateStateAndNotifyParentIfAllDone();
+    // }
+    // else
+    // {
+    // unhandled(message);
+    // }
+    // }
     private void handleEachIndex(final Object message)
     {
         LOG.debug("Worker Actor message for initial config is  received");
-
-        //Each worker is supposed to handle one index.
+        // Each worker is supposed to handle one index.
         config = (ElasticSearchIndexConfig) message;
         newIndexName = setupIndexService.createNewIndex(config);
         Assert.isTrue(StringUtils.isNotBlank(newIndexName));
@@ -140,18 +138,19 @@ public class SetupIndexWorkerActor extends UntypedActor
 
     private void indexDocumentType(final ElasticSearchIndexConfig config, final IndexDocumentType indexDocumentType)
     {
-        workerRouter.tell(new IndexDocumentTypeMessageVO().config(config).documentType(indexDocumentType).newIndexName(newIndexName), getSelf());
+        workerRouter.tell(new IndexDocumentTypeMessageVO().config(config).documentType(indexDocumentType).newIndexName(newIndexName),
+                getSelf());
         documentTypesDone.put(indexDocumentType, false);
     }
 
     private void updateStateAndNotifyParentIfAllDone()
     {
         boolean isAlldocumentTypeDone = true;
-        for (Entry<IndexDocumentType, Boolean> entry : documentTypesDone.entrySet())
+        for (final Entry<IndexDocumentType, Boolean> entry : documentTypesDone.entrySet())
         {
-            LOG.debug("Total indexing stats are: documentType: {}, DocumentTypesStatus: {}", new Object[] {
-                    entry.getKey(), entry.getValue() });
-            if(!entry.getValue())
+            LOG.debug("Total indexing stats are: documentType: {}, DocumentTypesStatus: {}",
+                    new Object[] { entry.getKey(), entry.getValue() });
+            if (!entry.getValue())
             {
                 isAlldocumentTypeDone = false;
             }
@@ -159,12 +158,11 @@ public class SetupIndexWorkerActor extends UntypedActor
         if (isAlldocumentTypeDone)
         {
             LOG.debug("Worker Actor message for indexing done for all products!");
-            //TODO: index type should have been done. shift alising for newly created indices now.
+            // TODO: index type should have been done. shift alising for newly created indices now.
             setupIndexService.replaceAlias(newIndexName, config.getIndexAliasName());
-//            sendMessageToParent(config);
+            // sendMessageToParent(config);
             sendMessageToParent(config);
             documentTypesDone.clear();
-
             stopTheActor();
         }
     }
