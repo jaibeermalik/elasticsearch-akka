@@ -27,7 +27,7 @@ public class IndexProductDataWorkerActor extends UntypedActor
             try
             {
                 final IndexDocumentVO indexDocumentVO = (IndexDocumentVO) message;
-                switch(indexDocumentVO.getDocumentType())
+                switch (indexDocumentVO.getDocumentType())
                 {
                     case PRODUCT:
                         indexProductDataService.indexProduct(indexDocumentVO.getConfig(), indexDocumentVO.getNewIndexName(),
@@ -41,13 +41,13 @@ public class IndexProductDataWorkerActor extends UntypedActor
                         indexDocumentVO.indexDone(true);
                         getSender().tell(indexDocumentVO, getSelf());
                         break;
-                    case PRODUCT_GROUP:    
+                    case PRODUCT_GROUP:
                         indexProductDataService.indexProductGroup(indexDocumentVO.getConfig(), indexDocumentVO.getNewIndexName(),
                                 indexDocumentVO.getProductGroup());
                         indexDocumentVO.indexDone(true);
                         getSender().tell(indexDocumentVO, getSelf());
                         break;
-                    default:    
+                    default:
                         handleUnhandledMessage(message);
                 }
             }
@@ -63,10 +63,10 @@ public class IndexProductDataWorkerActor extends UntypedActor
             handleUnhandledMessage(message);
         }
     }
-    
+
     private void handleUnhandledMessage(final Object message)
     {
-        //No local state the Actor, so can be restarted etc. no issues.
+        // No local state the Actor, so can be restarted etc. no issues.
         LOG.error("Unhandled message encountered in DataGeneratorWorkerActor: {}", message);
         unhandled(message);
     }

@@ -67,6 +67,8 @@ public class DataGeneratorWorkerActor extends UntypedActor
 
     private void generateData(final IndexDocumentTypeMessageVO indexDocumentTypeMessageVO, final int size)
     {
+        // Before starting data generation, send how much data will be generated, which is size.
+        getSender().tell(Integer.valueOf(size), getSelf());
         // LOG.debug("Generating data for IndexDocumentTypeMessageVO: {}, for size: {}", new Object[]{indexDocumentTypeMessageVO, size});
         for (int i = 1; i <= size; i++)
         {

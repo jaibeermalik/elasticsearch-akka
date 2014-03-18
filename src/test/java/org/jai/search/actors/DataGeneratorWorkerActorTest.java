@@ -79,6 +79,11 @@ public class DataGeneratorWorkerActorTest
         ref.tell(indexDocumentTypeMessageVO, testProbe.ref());
         verify(sampleDataGeneratorService);
         
+        testProbe.expectMsgClass(Integer.class);     
+        TestActor.Message sizeMessage = testProbe.lastMessage();
+        Integer resultMsgCount = (Integer) sizeMessage.msg();
+        assertEquals(1, resultMsgCount.intValue());
+        
         testProbe.expectMsgClass(IndexDocumentVO.class);     
         TestActor.Message message = testProbe.lastMessage();
         IndexDocumentVO resultMsg = (IndexDocumentVO) message.msg();
@@ -116,6 +121,11 @@ public class DataGeneratorWorkerActorTest
         ref.tell(indexDocumentTypeMessageVO, testProbe.ref());
         verify(sampleDataGeneratorService);
         
+        testProbe.expectMsgClass(Integer.class);     
+        TestActor.Message sizeMessage = testProbe.lastMessage();
+        Integer resultMsgCount = (Integer) sizeMessage.msg();
+        assertEquals(1, resultMsgCount.intValue());
+        
         testProbe.expectMsgClass(IndexDocumentVO.class);     
         TestActor.Message message = testProbe.lastMessage();
         IndexDocumentVO resultMsg = (IndexDocumentVO) message.msg();
@@ -150,6 +160,11 @@ public class DataGeneratorWorkerActorTest
         TestProbe testProbe = TestProbe.apply(system);
         ref.tell(indexDocumentTypeMessageVO, testProbe.ref());
         verify(sampleDataGeneratorService);
+        
+        testProbe.expectMsgClass(Integer.class);     
+        TestActor.Message sizeMessage = testProbe.lastMessage();
+        Integer resultMsgCount = (Integer) sizeMessage.msg();
+        assertEquals(1, resultMsgCount.intValue());
         
         testProbe.expectMsgClass(IndexDocumentVO.class);     
         TestActor.Message message = testProbe.lastMessage();

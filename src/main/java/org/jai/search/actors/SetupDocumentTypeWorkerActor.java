@@ -12,6 +12,8 @@ import org.jai.search.exception.DocumentTypeIndexingException;
 import org.jai.search.exception.IndexDataException;
 import org.jai.search.index.IndexProductDataService;
 
+import org.springframework.util.Assert;
+
 import akka.actor.ActorInitializationException;
 import akka.actor.ActorKilledException;
 import akka.actor.ActorRef;
@@ -30,17 +32,19 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
 {
     final LoggingAdapter LOG = Logging.getLogger(getContext().system(), this);
 
-    public ActorRef dataGeneratorWorkerRouter;
+    private ActorRef dataGeneratorWorkerRouter;
 
-    public ActorRef documentGeneratorWorkerRouter;
+    private ActorRef documentGeneratorWorkerRouter;
 
-    public ActorRef indexDocumentWorkerRouter;
+    private ActorRef indexDocumentWorkerRouter;
 
     private int totalDocumentsToIndex = 0;
 
     private int totalDocumentsToIndexDone = 0;
 
     private IndexDocumentType indexDocumentType;
+
+    private String parentActorPathString = "../../";
 
     public SetupDocumentTypeWorkerActor(final SampleDataGeneratorService sampleDataGeneratorService,
             final IndexProductDataService indexProductDataService)
@@ -109,6 +113,11 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
             {
                 handleDocumentTypeForDataGeneration(message);
             }
+            // store how much data will be generated
+            else if (message instanceof Integer)
+            {
+                handleTotalDocumentToIndex(message);
+            }
             // message from data generator, document generator and indexer
             else if (message instanceof IndexDocumentVO)
             {
@@ -120,7 +129,7 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
             }
             else
             {
-                unhandled(message);
+                handleUnhandledMessage(message);
             }
         }
         catch (final Exception exception)
@@ -131,6 +140,15 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
             final DocumentTypeIndexingException documentTypeIndexingException = new DocumentTypeIndexingException(indexDocumentType,
                     errorMessage, exception);
             sendMessageToParent(documentTypeIndexingException);
+        }
+    }
+
+    private void handleTotalDocumentToIndex(final Object message)
+    {
+        totalDocumentsToIndex = (Integer) message;
+        if (totalDocumentsToIndex == 0)
+        {
+            updateStateAndResetIfAllDone();
         }
     }
 
@@ -149,7 +167,7 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
         else if (ex instanceof DocumentGenerationException)
         {
             // TODO: not handling failure separately , change it.
-            totalDocumentsToIndex--;
+            totalDocumentsToIndexDone++;
             updateStateAndResetIfAllDone();
         }
         else if (ex instanceof IndexDataException)
@@ -160,7 +178,7 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
         }
         else
         {
-            unhandled(message);
+            handleUnhandledMessage(message);
         }
     }
 
@@ -175,7 +193,7 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
                     && indexDocumentVO.getProductGroup() == null)
             {
                 documentGeneratorWorkerRouter.tell(indexDocumentVO, getSelf());
-                totalDocumentsToIndex++;
+                // totalDocumentsToIndex++;
                 // TODO: implement supervisor strategy for failing stuff.
             }
             // Document generated, index it.
@@ -194,6 +212,8 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
     private void handleDocumentTypeForDataGeneration(final Object message)
     {
         final IndexDocumentTypeMessageVO indexDocumentTypeMessageVO = (IndexDocumentTypeMessageVO) message;
+        Assert.notNull(indexDocumentTypeMessageVO.getConfig(), "Indexing config can not be null!");
+        Assert.notNull(indexDocumentTypeMessageVO.getIndexDocumentType(), "Document type can not be null!");
         // Each actor is supposed to handle single document type.
         indexDocumentType = indexDocumentTypeMessageVO.getIndexDocumentType();
         dataGeneratorWorkerRouter.tell(indexDocumentTypeMessageVO, getSelf());
@@ -227,6 +247,51 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
 
     private void sendMessageToParent(final Object message)
     {
-        getContext().actorSelection("../../").tell(message, null);
+        getContext().actorSelection(parentActorPathString).tell(message, null);
+    }
+
+    private void handleUnhandledMessage(final Object message)
+    {
+        // No local state the Actor, so can be restarted etc. no issues.
+        LOG.error("Unhandled message encountered in SetupDocumentTypeWorkerActor: {}", message);
+        unhandled(message);
+    }
+
+    // /
+    // / For testing purpose
+    // /
+    public int getTotalDocumentsToIndex()
+    {
+        return totalDocumentsToIndex;
+    }
+
+    public int getTotalDocumentsToIndexDone()
+    {
+        return totalDocumentsToIndexDone;
+    }
+
+    public IndexDocumentType getIndexDocumentType()
+    {
+        return indexDocumentType;
+    }
+
+    public void setDataGeneratorWorkerRouter(final ActorRef dataGeneratorWorkerRouter)
+    {
+        this.dataGeneratorWorkerRouter = dataGeneratorWorkerRouter;
+    }
+
+    public void setDocumentGeneratorWorkerRouter(final ActorRef documentGeneratorWorkerRouter)
+    {
+        this.documentGeneratorWorkerRouter = documentGeneratorWorkerRouter;
+    }
+
+    public void setIndexDocumentWorkerRouter(final ActorRef indexDocumentWorkerRouter)
+    {
+        this.indexDocumentWorkerRouter = indexDocumentWorkerRouter;
+    }
+
+    public void setParentActorPathString(final String parentActorPathString)
+    {
+        this.parentActorPathString = parentActorPathString;
     }
 }

@@ -32,7 +32,7 @@ public class DocumentGeneratorWorkerActor extends UntypedActor
             try
             {
                 final IndexDocumentVO indexDocumentVO = (IndexDocumentVO) message;
-                switch(indexDocumentVO.getDocumentType())
+                switch (indexDocumentVO.getDocumentType())
                 {
                     case PRODUCT:
                         final Product product = sampleDataGenerator.generateProductSampleDataFor(indexDocumentVO.getDocumentId());
@@ -47,14 +47,14 @@ public class DocumentGeneratorWorkerActor extends UntypedActor
                         indexDocumentVO.productProperty(productProperty);
                         getSender().tell(indexDocumentVO, null);
                         break;
-                    case PRODUCT_GROUP:  
-                        final ProductGroup productGroup = sampleDataGenerator
-                        .generateProductGroupSampleDataFor(indexDocumentVO.getDocumentId());
+                    case PRODUCT_GROUP:
+                        final ProductGroup productGroup = sampleDataGenerator.generateProductGroupSampleDataFor(indexDocumentVO
+                                .getDocumentId());
                         Assert.notNull(productGroup);
                         indexDocumentVO.productGroup(productGroup);
                         getSender().tell(indexDocumentVO, null);
                         break;
-                    default:    
+                    default:
                         handleUnhandledMessage(message);
                 }
             }
@@ -70,10 +70,10 @@ public class DocumentGeneratorWorkerActor extends UntypedActor
             handleUnhandledMessage(message);
         }
     }
-    
+
     private void handleUnhandledMessage(final Object message)
     {
-        //No local state the Actor, so can be restarted etc. no issues.
+        // No local state the Actor, so can be restarted etc. no issues.
         LOG.error("Unhandled message encountered in DataGeneratorWorkerActor: {}", message);
         unhandled(message);
     }
