@@ -57,10 +57,6 @@ public class SetupIndexWorkerActor extends UntypedActor
             {
                 handleEachIndex(message);
             }
-            // else if (message instanceof IndexingMessage)
-            // {
-            // handleIndexingStatusCheckForEachIndex(message);
-            // }
             else if (message instanceof IndexDocumentType)
             {
                 handleIndexDocumentType(message);
@@ -157,11 +153,11 @@ public class SetupIndexWorkerActor extends UntypedActor
         }
         if (isAlldocumentTypeDone)
         {
-            LOG.debug("Worker Actor message for indexing done for all products!");
             // TODO: index type should have been done. shift alising for newly created indices now.
             setupIndexService.replaceAlias(newIndexName, config.getIndexAliasName());
             // sendMessageToParent(config);
             sendMessageToParent(config);
+            LOG.debug("All indexing done for the index: {} {}", new Object[] { newIndexName, config });
             documentTypesDone.clear();
             stopTheActor();
         }

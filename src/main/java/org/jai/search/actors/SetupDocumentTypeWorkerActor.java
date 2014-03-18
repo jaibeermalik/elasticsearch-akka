@@ -30,11 +30,11 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
 {
     final LoggingAdapter LOG = Logging.getLogger(getContext().system(), this);
 
-    private final ActorRef dataGeneratorWorkerRouter;
+    public ActorRef dataGeneratorWorkerRouter;
 
-    private final ActorRef documentGeneratorWorkerRouter;
+    public ActorRef documentGeneratorWorkerRouter;
 
-    private final ActorRef indexDocumentWorkerRouter;
+    public ActorRef indexDocumentWorkerRouter;
 
     private int totalDocumentsToIndex = 0;
 
@@ -101,7 +101,7 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
     @Override
     public void onReceive(final Object message)
     {
-        // LOG.debug("Worker Actor message for SetupIndexWorkerActor is:" + message);
+        // LOG.debug("Worker Actor message for SetupDocumentTypeWorkerActor is:" + message);
         try
         {
             // message from master actor
@@ -127,7 +127,7 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
         {
             // TODO: check if need to handle it differently
             final String errorMessage = "Error occured while indexing document type: " + message;
-            LOG.error(errorMessage);
+            LOG.error(exception, errorMessage);
             final DocumentTypeIndexingException documentTypeIndexingException = new DocumentTypeIndexingException(indexDocumentType,
                     errorMessage, exception);
             sendMessageToParent(documentTypeIndexingException);

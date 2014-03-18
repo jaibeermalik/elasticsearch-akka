@@ -33,7 +33,7 @@ public class ElasticSearchPart1Test extends AbstractSearchJUnit4SpringContextTes
     public void setupAllIndices()
     {
         //no parent stuff
-        setupIndexService.setupAllIndices(false);
+//        setupIndexService.setupAllIndices(false);
         
         //no child stuff
 //        setupIndexService.setupAllIndices(true);

@@ -1,6 +1,5 @@
 package org.jai.search.actors;
 
-import org.jai.search.config.IndexDocumentType;
 import org.jai.search.data.SampleDataGeneratorService;
 import org.jai.search.exception.DocumentTypeDataGenerationException;
 
@@ -12,37 +11,36 @@ public class DataGeneratorWorkerActor extends UntypedActor
 {
     final LoggingAdapter LOG = Logging.getLogger(getContext().system(), this);
 
-    private final SampleDataGeneratorService sampleDataGenerator;
+    private final SampleDataGeneratorService sampleDataGeneratorService;
 
-    public DataGeneratorWorkerActor(final SampleDataGeneratorService sampleDataGenerator)
+    public DataGeneratorWorkerActor(final SampleDataGeneratorService sampleDataGeneratorService)
     {
-        this.sampleDataGenerator = sampleDataGenerator;
+        this.sampleDataGeneratorService = sampleDataGeneratorService;
     }
 
     @Override
     public void onReceive(final Object message)
     {
+        // LOG.debug("Worker Actor message for DataGeneratorWorkerActor is:" + message);
         // message from master actor
         if (message instanceof IndexDocumentTypeMessageVO)
         {
             final IndexDocumentTypeMessageVO indexDocumentTypeMessageVO = (IndexDocumentTypeMessageVO) message;
             try
             {
-                if (indexDocumentTypeMessageVO.getIndexDocumentType().equals(IndexDocumentType.PRODUCT))
+                switch (indexDocumentTypeMessageVO.getIndexDocumentType())
                 {
-                    generateData(indexDocumentTypeMessageVO, sampleDataGenerator.generateProductsSampleData().size());
-                }
-                else if (indexDocumentTypeMessageVO.getIndexDocumentType().equals(IndexDocumentType.PRODUCT_PROPERTY))
-                {
-                    generateData(indexDocumentTypeMessageVO, sampleDataGenerator.generateProductPropertySampleData().size());
-                }
-                else if (indexDocumentTypeMessageVO.getIndexDocumentType().equals(IndexDocumentType.PRODUCT_GROUP))
-                {
-                    generateData(indexDocumentTypeMessageVO, sampleDataGenerator.generateProductGroupSampleData().size());
-                }
-                else
-                {
-                    unhandled(message);
+                    case PRODUCT:
+                        generateData(indexDocumentTypeMessageVO, sampleDataGeneratorService.generateProductsSampleData().size());
+                        break;
+                    case PRODUCT_PROPERTY:
+                        generateData(indexDocumentTypeMessageVO, sampleDataGeneratorService.generateProductPropertySampleData().size());
+                        break;
+                    case PRODUCT_GROUP:
+                        generateData(indexDocumentTypeMessageVO, sampleDataGeneratorService.generateProductGroupSampleData().size());
+                        break;
+                    default:
+                        handleUnhandledMessage(message);
                 }
             }
             catch (final Exception ex)
@@ -56,12 +54,20 @@ public class DataGeneratorWorkerActor extends UntypedActor
         }
         else
         {
-            unhandled(message);
+            handleUnhandledMessage(message);
         }
+    }
+
+    private void handleUnhandledMessage(final Object message)
+    {
+        // No local state the Actor, so can be restarted etc. no issues.
+        LOG.error("Unhandled message encountered in DataGeneratorWorkerActor: {}", message);
+        unhandled(message);
     }
 
     private void generateData(final IndexDocumentTypeMessageVO indexDocumentTypeMessageVO, final int size)
     {
+        // LOG.debug("Generating data for IndexDocumentTypeMessageVO: {}, for size: {}", new Object[]{indexDocumentTypeMessageVO, size});
         for (int i = 1; i <= size; i++)
         {
             final IndexDocumentVO indexDocumentVO = new IndexDocumentVO().config(indexDocumentTypeMessageVO.getConfig())

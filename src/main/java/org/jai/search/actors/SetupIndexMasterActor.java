@@ -6,6 +6,8 @@ import org.jai.search.exception.IndexingException;
 import org.jai.search.index.IndexProductDataService;
 import org.jai.search.setup.SetupIndexService;
 
+import org.apache.commons.lang.time.StopWatch;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -25,6 +27,10 @@ public class SetupIndexMasterActor extends UntypedActor
 
     private boolean allIndexingDone;
 
+    private boolean isRebuildInProgress;
+
+    private final StopWatch stopWatch = new StopWatch();
+
     private final Map<ElasticSearchIndexConfig, Boolean> indexDone = new HashMap<ElasticSearchIndexConfig, Boolean>();
 
     public SetupIndexMasterActor(final SetupIndexService setupIndexService, final SampleDataGeneratorService sampleDataGeneratorService,
@@ -41,7 +47,7 @@ public class SetupIndexMasterActor extends UntypedActor
         LOG.debug("Master Actor message received is:" + message);
         if (message instanceof IndexingMessage)
         {
-            handleIndexingStatusCheck(message);
+            handleIndexingMessage(message);
         }
         else if (message instanceof ElasticSearchIndexConfig)
         {
@@ -78,25 +84,48 @@ public class SetupIndexMasterActor extends UntypedActor
         }
     }
 
-    private void handleIndexingStatusCheck(final Object message)
+    private void handleIndexingMessage(final Object message)
     {
         final IndexingMessage indexingMessage = (IndexingMessage) message;
         if (IndexingMessage.REBUILD_ALL_INDICES.equals(indexingMessage))
         {
-            setupIndicesForAll();
+            handleIndexingRebuildMessage(message);
         }
         else if (IndexingMessage.REBUILD_ALL_INDICES_DONE.equals(indexingMessage))
         {
             returnAllIndicesCurrentStateAndReset();
         }
-        // else if (IndexingMessage.INDEX_DONE.equals(indexingMessage))
-        // {
-        // totalToIndexDone++;
-        // updateIndexDoneState();
-        // }
         else
         {
             unhandled(message);
+        }
+    }
+
+    private void handleIndexingRebuildMessage(final Object message)
+    {
+        // Start watch first time.
+        if (!isRebuildInProgress)
+        {
+            stopWatch.start();
+        }
+        // need to validate the hanging state here
+        // All indexing done, but rebuild in progress. wait 5 min for client otherwise reset state.
+        if (allIndexingDone && isRebuildInProgress)
+        {
+            if (stopWatch.getTime() > 5 * 60 * 1000)
+            {
+                isRebuildInProgress = false;
+                stopWatch.reset();
+            }
+        }
+        if (isRebuildInProgress)
+        {
+            LOG.error("Rebuilding is already in progress, ignoring another rebuild message: {}", message);
+        }
+        else
+        {
+            isRebuildInProgress = true;
+            setupIndicesForAll();
         }
     }
 
@@ -105,6 +134,7 @@ public class SetupIndexMasterActor extends UntypedActor
         boolean isAllIndexDone = true;
         for (final Entry<ElasticSearchIndexConfig, Boolean> entry : indexDone.entrySet())
         {
+            LOG.debug("Indexing setup current status is index: {} status: {}", new Object[] { entry.getKey(), entry.getValue() });
             if (!entry.getValue())
             {
                 isAllIndexDone = false;
@@ -113,6 +143,8 @@ public class SetupIndexMasterActor extends UntypedActor
         if (isAllIndexDone)
         {
             allIndexingDone = true;
+            // TODO: not setting it here as client still needs status
+            // isRebuildInProgress = false;
         }
     }
 
@@ -123,8 +155,13 @@ public class SetupIndexMasterActor extends UntypedActor
         // Reset current state
         if (allIndexingDone)
         {
+            LOG.debug("Indexing setup finished for all indices!");
             allIndexingDone = false;
             indexDone.clear();
+            // Setting it here, but need to check that it will never be called, if client dies.
+            // put additional check when you receive new rebuild call, 1 min check
+            isRebuildInProgress = false;
+            stopWatch.reset();
             // TODO as it is single instance, need not to stop it.
             // getContext().stop(getSelf());
             // TODO: check when the alising should be changed.
@@ -133,6 +170,7 @@ public class SetupIndexMasterActor extends UntypedActor
 
     private void setupIndicesForAll()
     {
+        LOG.debug("Starting fresh Rebuilding of indices!");
         for (final ElasticSearchIndexConfig config : ElasticSearchIndexConfig.values())
         {
             workerRouter.tell(config, getSelf());

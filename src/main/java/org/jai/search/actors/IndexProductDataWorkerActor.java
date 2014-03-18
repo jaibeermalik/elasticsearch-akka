@@ -1,6 +1,5 @@
 package org.jai.search.actors;
 
-import org.jai.search.config.IndexDocumentType;
 import org.jai.search.exception.IndexDataException;
 import org.jai.search.index.IndexProductDataService;
 
@@ -28,34 +27,28 @@ public class IndexProductDataWorkerActor extends UntypedActor
             try
             {
                 final IndexDocumentVO indexDocumentVO = (IndexDocumentVO) message;
-                if (indexDocumentVO.getDocumentType().equals(IndexDocumentType.PRODUCT))
+                switch(indexDocumentVO.getDocumentType())
                 {
-                    // if (indexDocumentVO.getDocumentId().intValue() == 36)
-                    // {
-                    // throw new RuntimeException("blah blah");
-                    // }
-                    indexProductDataService.indexProduct(indexDocumentVO.getConfig(), indexDocumentVO.getNewIndexName(),
-                            indexDocumentVO.getProduct());
-                    indexDocumentVO.indexDone(true);
-                    getSender().tell(indexDocumentVO, getSelf());
-                }
-                else if (indexDocumentVO.getDocumentType().equals(IndexDocumentType.PRODUCT_PROPERTY))
-                {
-                    indexProductDataService.indexProductPropterty(indexDocumentVO.getConfig(), indexDocumentVO.getNewIndexName(),
-                            indexDocumentVO.getProductProperty());
-                    indexDocumentVO.indexDone(true);
-                    getSender().tell(indexDocumentVO, getSelf());
-                }
-                else if (indexDocumentVO.getDocumentType().equals(IndexDocumentType.PRODUCT_GROUP))
-                {
-                    indexProductDataService.indexProductGroup(indexDocumentVO.getConfig(), indexDocumentVO.getNewIndexName(),
-                            indexDocumentVO.getProductGroup());
-                    indexDocumentVO.indexDone(true);
-                    getSender().tell(indexDocumentVO, getSelf());
-                }
-                else
-                {
-                    unhandled(message);
+                    case PRODUCT:
+                        indexProductDataService.indexProduct(indexDocumentVO.getConfig(), indexDocumentVO.getNewIndexName(),
+                                indexDocumentVO.getProduct());
+                        indexDocumentVO.indexDone(true);
+                        getSender().tell(indexDocumentVO, getSelf());
+                        break;
+                    case PRODUCT_PROPERTY:
+                        indexProductDataService.indexProductPropterty(indexDocumentVO.getConfig(), indexDocumentVO.getNewIndexName(),
+                                indexDocumentVO.getProductProperty());
+                        indexDocumentVO.indexDone(true);
+                        getSender().tell(indexDocumentVO, getSelf());
+                        break;
+                    case PRODUCT_GROUP:    
+                        indexProductDataService.indexProductGroup(indexDocumentVO.getConfig(), indexDocumentVO.getNewIndexName(),
+                                indexDocumentVO.getProductGroup());
+                        indexDocumentVO.indexDone(true);
+                        getSender().tell(indexDocumentVO, getSelf());
+                        break;
+                    default:    
+                        handleUnhandledMessage(message);
                 }
             }
             catch (final Exception e)
@@ -67,7 +60,14 @@ public class IndexProductDataWorkerActor extends UntypedActor
         }
         else
         {
-            unhandled(message);
+            handleUnhandledMessage(message);
         }
+    }
+    
+    private void handleUnhandledMessage(final Object message)
+    {
+        //No local state the Actor, so can be restarted etc. no issues.
+        LOG.error("Unhandled message encountered in DataGeneratorWorkerActor: {}", message);
+        unhandled(message);
     }
 }

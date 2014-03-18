@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StopWatch;
 
 import akka.actor.ActorRef;
 import akka.pattern.Patterns;
@@ -34,21 +35,28 @@ public class BootStrapIndexingServiceImpl implements BootStrapIndexService
     {
         logger.info("Starting index preparation for {}", IndexingMessage.REBUILD_ALL_INDICES);
         setupIndexMasterActor.tell(IndexingMessage.REBUILD_ALL_INDICES, null);
-        final Timeout timeout = new Timeout(Duration.create(60, "seconds"));
+        final Timeout timeout = new Timeout(Duration.create(10, "seconds"));
+        final StopWatch stopWatch = new StopWatch();
         Future<Object> future = Patterns.ask(setupIndexMasterActor, IndexingMessage.REBUILD_ALL_INDICES_DONE, timeout);
         try
         {
-            while (!(Boolean) Await.result(future, timeout.duration()))
+            // Allow only to run for max 5 min. and check every few sec usign thread sleep.
+            stopWatch.start();
+            while (!(Boolean) Await.result(future, timeout.duration()) && stopWatch.getTotalTimeSeconds() < 5 * 60)
             {
                 future = Patterns.ask(setupIndexMasterActor, IndexingMessage.REBUILD_ALL_INDICES_DONE, timeout);
-                System.out.println("Got back " + false);
-                Thread.sleep(1000);
+                logger.debug("Index setup status check, Got back " + false);
+                // setupIndexMasterActor.tell(IndexingMessage.REBUILD_ALL_INDICES, null);
+                // TODO: use this, based on your time taken by ur env. here, 100 ms
+                Thread.sleep(100);
             }
-            System.out.println("Got back " + true);
+            logger.debug("Index setup status check, Got back " + true);
+            // setupIndexMasterActor.tell(IndexingMessage.REBUILD_ALL_INDICES, null);
         }
         catch (final Exception e)
         {
-            System.err.println("Failed getting result: " + e.getMessage());
+            logger.debug("Index setup status check, Failed getting result: " + e.getMessage());
         }
+        logger.debug("All indexing setup finished using Akka system, Enjoy!");
     }
 }

@@ -48,15 +48,6 @@ class AppConfigurationScala {
     system
   }
 
-  //  val actorSystemScala = bean(name="actorSystemScala") {
-  //    val system = ActorSystem("SearchIndexingSystemScala")
-  //    // initialize the application context in the Akka Spring Extension
-  //    SpringExtentionImplScala(system)
-  //    LOG.debug("Actor system created with details" + system);
-  ////    system.asInstanceOf[ActorRefFactory]
-  //    system
-  //  }
-
   @Bean
   @DependsOn(value = Array("actorSystemScala"))
   val indexDataMasterActorScala = {
@@ -68,24 +59,8 @@ class AppConfigurationScala {
   @PostConstruct
   def indexDataMasterActorScalaInject = {
     assert(applicationContext != null, "App context applicationContext can't be null")
-    SpringExtentionImplScala(actorSystemScala).applicationContext = applicationContext
-
-    //    val prop = SpringExtentionImplScala(system).props("indexDataMasterActorScala")
-    //    val productQueryService = applicationContext.getBean(classOf[ProductQueryService])
-    //    indexDataMasterActorScala.setProductQueryService(productQueryService)
-    //    indexDataMasterActorScala.asInstanceOf[IndexDataMasterActorScala].setProductQueryService(productQueryService)
     val indexDataActorSystemHandlerServiceImplScala = applicationContext.getBean(classOf[IndexDataActorSystemHandlerServiceImplScala])
     indexDataActorSystemHandlerServiceImplScala.setIndexDataMasterActorScala(indexDataMasterActorScala)
   }
 
-  //	@Bean
-  //  val indexDataMasterActorScala = bean(name="indexDataMasterActorScala") {
-  //    val system = applicationContext.getBean("actorSystemScala").asInstanceOf[ActorSystem]
-  //    LOG.debug("Actor system retrieved for master actor with details" + system);
-  //    val productQueryService = applicationContext.getBean(classOf[ProductQueryService]);
-  //    val prop = SpringExtentionImplScala(system).props("indexDataMasterActorScala")
-  //    val master = system.actorOf(prop, "masterActorScala")
-  //    LOG.debug("Master Actor Scala created with details" + master);
-  //    master
-  //  }
 }

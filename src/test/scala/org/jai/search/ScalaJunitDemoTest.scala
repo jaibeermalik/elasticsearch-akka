@@ -4,6 +4,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.scalatest.junit.AssertionsForJUnit
 
+@Ignore
 class ScalaJunitDemoTest extends AssertionsForJUnit {
   // tests go here...
 

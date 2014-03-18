@@ -33,6 +33,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Random;
 import java.util.Set;
 
 @Service
@@ -187,7 +188,7 @@ public class SetupIndexServiceImpl implements SetupIndexService
     {
         final SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmss");
         final String suffix = sdf.format(date);
-        return indexName + suffix;
+        return indexName + suffix + new Random().nextInt(86400);
     }
 
     @Override
