@@ -6,6 +6,7 @@ import org.jai.search.exception.DocumentTypeDataGenerationException;
 import akka.actor.UntypedActor;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
+import scala.Option;
 
 public class DataGeneratorWorkerActor extends UntypedActor
 {
@@ -77,5 +78,13 @@ public class DataGeneratorWorkerActor extends UntypedActor
                     .newIndexName(indexDocumentTypeMessageVO.getNewIndexName()).documentId(Long.valueOf(i));
             getSender().tell(indexDocumentVO, getSelf());
         }
+    }
+
+    @Override
+    public void preRestart(final Throwable reason, final Option<Object> message) throws Exception
+    {
+        // TODO Auto-generated method stub
+        super.preRestart(reason, message);
+        LOG.debug("DataGeneratorWorkerActor restarted because of reason: {}", reason);
     }
 }

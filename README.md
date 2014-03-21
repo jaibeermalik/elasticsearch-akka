@@ -1,7 +1,7 @@
 elasticsearch-akka
 ======================
 
-Using akka java and scala API with elasticsearch to generate and index documents.
+Using akka java and java/scala API with elasticsearch to generate and index documents.
 
 
 Scenarios:
@@ -13,41 +13,31 @@ Only if all indexing done, change to alias.
 Monitor indexing of all doc, how many successful and failures.
 Depending all count of docs, change aliasing.
 
-one approach:
-BooststrapSearchSetup()
-					->SetupMasterActor(foreach index)
-													->SetupMasterWorkerActor(foreach index)
-																										->IndexDocumentRouterActor(let's say 10)
-																														->SearchDocumentGeneratorActor 
-																														->IndexDocumentActor			
-
-second approach:																														
-BooststrapSearchSetup
-					for full index, SearchConfig->SetupIndexWorkerActor(foreach index, first generate doc and then index)
-																							->SearchDocumentGeneratorActor 
-																							->IndexDocumentActor
-					for single doc, Long id->SetupIndexWorkerActor(first generate doc and then index)
-																									->SearchDocumentGeneratorActor 
-																									->IndexDocumentActor
-
-BooststrapSearchSetup->REBUILD_ALL_INDICES->Is all indexing done->REBUILD_ALL_INDICES_DONE
-SetupIndexWorkerActor->
+Approach:
+BooststrapSearchSetup(): Kick off search setup and monitor status.
+->SetupIndexMasterActor: Monitor status for all indexes. Single instance per app context.
+-->SetupIndexWorkerActor: foreach index monitor status. One instance per index.
+--->SetupDocumentTypeWorkerActor: foreach document type track status and index in parallel. One instance per document type under an index.
+---->DataGeneratorWorkerActor: Generate data which needs to be indexed. Single instance per document type.
+---->DocumentGeneratorWorkerActor: Generate search document. multiple instance let's say 10.
+---->IndexProductDataWorkerActor: index search document to ES. multiple instance let's say 10.
 
 
 Regular update:
-Index a document Asynch.
+Index a document Asynch on real time. Update/Delete a doc, and check status.
 
-Delete doc:
-delete a doc, and check status.
+Exception handling:
+Each Actor to report status using exception handling.
+Actor state and status reporting from child actor to Parent with timeout approach.
 
-Check Pinned dispatcher for the database calls, if those are blocking calls. dispatcher n resource per actor.
-Check balancing dispatcher for same actor type as diving work to idle actors also.
-Pick->dispatcher, executor, no. of threads/cores, throughput (msg exec time)
+Executor, Dispatcher and Routing:
+Specific configurations for executors, dispatchers and routing for each actor.
+Balancing dispatcher for same actor type as diving work to idle actors also.
+Round-robin Resizable router pool.
 
-check dynamically resing the routers.
-check filedurablestorage mailbox type for storing messages for durability, usually for multi node distributed systems.
-
-check spray/scalatra for exposing actors using http/rest api.
+Testing:
+Unit test cases for Actors using testkit.
+Integration test cases with spring test.
 
 -----
 

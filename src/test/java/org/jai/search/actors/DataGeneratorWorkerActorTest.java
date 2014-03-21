@@ -43,8 +43,7 @@ public class DataGeneratorWorkerActorTest
     @BeforeClass
     public static void prepareBeforeClass()
     {
-//        system = ActorSystem.create();
-        system = ActorSystem.create("SearchIndexingSystem", ConfigFactory.load().getConfig("SearchIndexingSystem"));
+        system = ActorSystem.create("TestSearchIndexingSystem", ConfigFactory.load().getConfig("TestSearchIndexingSystem"));
     }
 
     @Before

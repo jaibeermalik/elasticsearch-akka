@@ -51,7 +51,7 @@ public class SearchClientServiceMockImpl implements SearchClientService
                 // .put(ElasticSearchReservedWords.INDEX_MAPPER_DYNAMIC.getText(), false)
                 .build();
         startNode("server1", settings);
-        startNode("server2", settings);
+        // startNode("server2", settings);
     }
 
     // @PreDestroy

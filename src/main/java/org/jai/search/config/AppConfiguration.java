@@ -25,7 +25,6 @@ import akka.actor.Props;
 @Configuration
 class AppConfiguration
 {
-    // the application context is needed to initialize the Akka Spring Extension
     @Autowired
     private ApplicationContext applicationContext;
 

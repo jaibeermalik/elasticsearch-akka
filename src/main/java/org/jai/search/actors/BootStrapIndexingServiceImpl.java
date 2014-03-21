@@ -46,12 +46,10 @@ public class BootStrapIndexingServiceImpl implements BootStrapIndexService
             {
                 future = Patterns.ask(setupIndexMasterActor, IndexingMessage.REBUILD_ALL_INDICES_DONE, timeout);
                 logger.debug("Index setup status check, Got back " + false);
-                // setupIndexMasterActor.tell(IndexingMessage.REBUILD_ALL_INDICES, null);
                 // TODO: use this, based on your time taken by ur env. here, 100 ms
                 Thread.sleep(100);
             }
             logger.debug("Index setup status check, Got back " + true);
-            // setupIndexMasterActor.tell(IndexingMessage.REBUILD_ALL_INDICES, null);
         }
         catch (final Exception e)
         {

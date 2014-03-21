@@ -30,7 +30,7 @@ import scala.concurrent.duration.Duration;
 
 public class SetupDocumentTypeWorkerActor extends UntypedActor
 {
-    final LoggingAdapter LOG = Logging.getLogger(getContext().system(), this);
+    private final LoggingAdapter LOG = Logging.getLogger(getContext().system(), this);
 
     private ActorRef dataGeneratorWorkerRouter;
 
@@ -99,6 +99,7 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
     @Override
     public SupervisorStrategy supervisorStrategy()
     {
+        LOG.debug("Custom supervisorStrategy is used for SetupDocumentTypeWorkerActor!");
         return strategy;
     }
 
@@ -163,6 +164,7 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
             final DocumentTypeIndexingException documentTypeIndexingException = new DocumentTypeIndexingException(indexDocumentType,
                     "Data generation failed, failing whole document type itself!", ex);
             sendMessageToParent(documentTypeIndexingException);
+            resetActorState();
         }
         else if (ex instanceof DocumentGenerationException)
         {
@@ -212,8 +214,13 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
     private void handleDocumentTypeForDataGeneration(final Object message)
     {
         final IndexDocumentTypeMessageVO indexDocumentTypeMessageVO = (IndexDocumentTypeMessageVO) message;
+        // Check input data
         Assert.notNull(indexDocumentTypeMessageVO.getConfig(), "Indexing config can not be null!");
         Assert.notNull(indexDocumentTypeMessageVO.getIndexDocumentType(), "Document type can not be null!");
+        // Check existing state.
+        Assert.isNull(indexDocumentType, "Actor already processing document type, this should have not happened!");
+        Assert.isTrue(totalDocumentsToIndex == 0, "Existing docs to index should have been zero!");
+        Assert.isTrue(totalDocumentsToIndexDone == 0, "Existing docs to indexing done should have been zero!");
         // Each actor is supposed to handle single document type.
         indexDocumentType = indexDocumentTypeMessageVO.getIndexDocumentType();
         dataGeneratorWorkerRouter.tell(indexDocumentTypeMessageVO, getSelf());
@@ -232,10 +239,16 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
             // Send the document type done for all the handling types, for now total products done means all types done, change it.
             // sendMessageToParent(IndexingMessage.DOCUMENTTYPE_DONE);
             sendMessageToParent(indexDocumentType);
-            totalDocumentsToIndex = 0;
-            totalDocumentsToIndexDone = 0;
+            resetActorState();
             stopTheActor();
         }
+    }
+
+    private void resetActorState()
+    {
+        totalDocumentsToIndex = 0;
+        totalDocumentsToIndexDone = 0;
+        indexDocumentType = null;
     }
 
     private void stopTheActor()
@@ -247,6 +260,8 @@ public class SetupDocumentTypeWorkerActor extends UntypedActor
 
     private void sendMessageToParent(final Object message)
     {
+        // Using actor selection to find parent , as message of indexing completion is received from child actors.
+        // To find parent, because of $val syntax and routee, using actor path for the same.
         getContext().actorSelection(parentActorPathString).tell(message, null);
     }
 

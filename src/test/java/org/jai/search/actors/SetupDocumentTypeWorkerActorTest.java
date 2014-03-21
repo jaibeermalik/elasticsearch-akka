@@ -252,10 +252,11 @@ public class SetupDocumentTypeWorkerActorTest
         testProbeParent.expectMsgClass(IndexDocumentType.class);
         TestActor.Message messageDocIndexDone = testProbeParent.lastMessage();
         IndexDocumentType resultMsgDocIndexDone = (IndexDocumentType) messageDocIndexDone.msg();
+        //state reset 
         assertEquals(documentType, resultMsgDocIndexDone);
         assertEquals(0, actor.getTotalDocumentsToIndex());
         assertEquals(0, actor.getTotalDocumentsToIndexDone());
-        assertEquals(documentType, actor.getIndexDocumentType());
+        assertEquals(null, actor.getIndexDocumentType());
     }
 
     @Test
@@ -329,16 +330,17 @@ public class SetupDocumentTypeWorkerActorTest
 
         ref.tell(documentTypeDataGenerationException, testProbeDataGeneratorWorker.ref());
         
-        //Updated actor state
+        //Updated actor state, state reset
         assertEquals(0, actor.getTotalDocumentsToIndex());
         assertEquals(0, actor.getTotalDocumentsToIndexDone());
-        assertEquals(documentType, actor.getIndexDocumentType());
+        assertEquals(null, actor.getIndexDocumentType());
         
         testProbeParentActor.expectMsgClass(DocumentTypeIndexingException.class);
         TestActor.Message testProbeParentActorMessage = testProbeParentActor.lastMessage();
         DocumentTypeIndexingException testProbeParentActorMessageType = (DocumentTypeIndexingException) testProbeParentActorMessage.msg();
         assertEquals(documentType, testProbeParentActorMessageType.getIndexDocumentType());
         //Let's say total data to generate to 1
+        ref.tell(indexDocumentTypeMessageVO, null);
         ref.tell(Integer.valueOf(1), testProbeDataGeneratorWorker.ref());
         assertEquals(1, actor.getTotalDocumentsToIndex());
         assertEquals(0, actor.getTotalDocumentsToIndexDone());
@@ -365,10 +367,10 @@ public class SetupDocumentTypeWorkerActorTest
         DocumentGenerationException documentGenerationException = new DocumentGenerationException("Error generation document!");
         ref.tell(documentGenerationException, testProbeDocumentGeneratorWorker.ref());
         
-        //Updated actor state, decreases doc count by 1.
+        //Updated actor state, decreases doc count by 1. and state reset as all is done.
         assertEquals(0, actor.getTotalDocumentsToIndex());
         assertEquals(0, actor.getTotalDocumentsToIndexDone());
-        assertEquals(documentType, actor.getIndexDocumentType());
+        assertEquals(null, actor.getIndexDocumentType());
         //tell to parent that it is done.
         testProbeParentActor.expectMsgClass(IndexDocumentType.class);
         testProbeParentActorMessage = testProbeParentActor.lastMessage();
@@ -378,6 +380,7 @@ public class SetupDocumentTypeWorkerActorTest
         // send data back, index document.
         //last exception occurred, send it again.
         //Let's say total data to generate to 1
+        ref.tell(indexDocumentTypeMessageVO, null);
         ref.tell(Integer.valueOf(1), testProbeDataGeneratorWorker.ref());
         Product product = new Product();
         product.setId(documentId);
@@ -401,7 +404,7 @@ public class SetupDocumentTypeWorkerActorTest
         //The state is reset back to initial and informed parent.
         assertEquals(0, actor.getTotalDocumentsToIndex());
         assertEquals(0, actor.getTotalDocumentsToIndexDone());
-        assertEquals(documentType, actor.getIndexDocumentType());
+        assertEquals(null, actor.getIndexDocumentType());
         //tell to parent that it is done.
         testProbeParentActor.expectMsgClass(IndexDocumentType.class);
         testProbeParentActorMessage = testProbeParentActor.lastMessage();
@@ -410,10 +413,11 @@ public class SetupDocumentTypeWorkerActorTest
        //Updated actor state, increase index doc count by 1.
         assertEquals(0, actor.getTotalDocumentsToIndex());
         assertEquals(0, actor.getTotalDocumentsToIndexDone());
-        assertEquals(documentType, actor.getIndexDocumentType());  
+        assertEquals(null, actor.getIndexDocumentType());  
         // Send back message, indexdone.
         //last exception occred, send msg again
         //Let's say total data to generate to 1
+        ref.tell(indexDocumentTypeMessageVO, null);
         ref.tell(Integer.valueOf(1), testProbeDataGeneratorWorker.ref());
         resultMsgDocIndex.indexDone(true);
         ref.tell(resultMsgDocIndex, null);
@@ -424,7 +428,7 @@ public class SetupDocumentTypeWorkerActorTest
         assertEquals(documentType, testProbeParentActorMessageType4);
         assertEquals(0, actor.getTotalDocumentsToIndex());
         assertEquals(0, actor.getTotalDocumentsToIndexDone());
-        assertEquals(documentType, actor.getIndexDocumentType());
+        assertEquals(null, actor.getIndexDocumentType());
     }
 
     @Test
