@@ -257,7 +257,7 @@ public class SetupIndexServiceImpl implements SetupIndexService
     {
         String settingValue = null;
         final ClusterStateResponse clusterStateResponse = searchClientService.getClient().admin().cluster().prepareState()
-                .setFilterRoutingTable(true).setFilterNodes(true).setFilterIndices(config.getIndexAliasName()).get();
+                .setRoutingTable(true).setNodes(true).setIndices(config.getIndexAliasName()).get();
         for (final IndexMetaData indexMetaData : clusterStateResponse.getState().getMetaData())
         {
             settingValue = indexMetaData.getSettings().get(settingName);

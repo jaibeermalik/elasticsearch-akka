@@ -15,7 +15,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
 import akka.actor.ActorRef;
-import akka.actor.ActorRefFactory;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
 
@@ -32,7 +31,7 @@ class AppConfiguration
      * Actor system singleton for this application.
      */
     @Bean(autowire = Autowire.BY_NAME, name = "actorSystem")
-    public ActorRefFactory actorSystem()
+    public ActorSystem actorSystem()
     {
         return ActorSystem.create("SearchIndexingSystem", ConfigFactory.load().getConfig("SearchIndexingSystem"));
     }

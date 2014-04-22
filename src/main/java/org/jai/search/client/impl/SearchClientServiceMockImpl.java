@@ -17,8 +17,8 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.util.Map;
-
 import javax.annotation.PostConstruct;
+
 
 @Service(value = "searchClientService")
 public class SearchClientServiceMockImpl implements SearchClientService
