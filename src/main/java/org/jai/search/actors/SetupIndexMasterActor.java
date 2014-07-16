@@ -132,6 +132,7 @@ public class SetupIndexMasterActor extends UntypedActor
     private void updateIndexDoneState()
     {
         boolean isAllIndexDone = true;
+        
         for (final Entry<ElasticSearchIndexConfig, Boolean> entry : indexDone.entrySet())
         {
             LOG.debug("Indexing setup current status is index: {} status: {}", new Object[] { entry.getKey(), entry.getValue() });

@@ -16,9 +16,17 @@ import org.elasticsearch.node.Node;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Map;
-import javax.annotation.PostConstruct;
 
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 
 @Service(value = "searchClientService")
 public class SearchClientServiceMockImpl implements SearchClientService
@@ -27,21 +35,21 @@ public class SearchClientServiceMockImpl implements SearchClientService
 
     private final Map<String, Client> clients = newHashMap();
 
+    private String parentDirURI = System.getProperty("java.io.tmpdir") + "/esintegrationtest/";
+
     private Settings defaultSettings = ImmutableSettings
             .settingsBuilder()
             .put(ElasticSearchReservedWords.CLUSTER_NAME.getText(), "test-cluster-" + NetworkUtils.getLocalAddress().getHostName())
-            // data dir, other node dir for lock etc will still be created
-            .put(ElasticSearchReservedWords.PATH_DATA.getText(),
-                    new File(System.getProperty("java.io.tmpdir") + "/esintegrationtest/data").getAbsolutePath())
-            .put(ElasticSearchReservedWords.PATH_WORK.getText(),
-                    new File(System.getProperty("java.io.tmpdir") + "/esintegrationtest/work").getAbsolutePath())
-            .put(ElasticSearchReservedWords.PATH_LOG.getText(),
-                    new File(System.getProperty("java.io.tmpdir") + "/esintegrationtest/log").getAbsolutePath())
+            // data dir, other node dir for lock etc will still be created, wont created for in memory stuff
+            .put(ElasticSearchReservedWords.PATH_DATA.getText(), parentDirURI + "/data")
+            .put(ElasticSearchReservedWords.PATH_WORK.getText(), parentDirURI + "/work")
+            .put(ElasticSearchReservedWords.PATH_LOG.getText(), parentDirURI + "/log")
             .put(ElasticSearchReservedWords.PATH_CONF.getText(), new File("config").getAbsolutePath())
             // will not survive restart
             // TODO: memory store type cause out of memory in eclipse on low config machine
             // Check how to set memory setting and allocations in memory store type.
-            .put("index.store.type", "memory").build();
+             .put("index.store.type", "memory")
+            .build();
 
     @PostConstruct
     public void createNodes() throws Exception
@@ -54,11 +62,39 @@ public class SearchClientServiceMockImpl implements SearchClientService
         // startNode("server2", settings);
     }
 
-    // @PreDestroy
+    @PreDestroy
     public void closeNodes()
     {
+        // close all conns
         getClient().close();
         closeAllNodes();
+        // Clean up all temp files
+        try
+        {
+            // System.out.println("Cleaning up ES temp dir:" + parentDirURI);
+            Files.walkFileTree(Paths.get(parentDirURI), new SimpleFileVisitor<Path>()
+            {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException
+                {
+                    // System.out.println("Found file: " + file.getFileName());
+                    Files.delete(file);
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException
+                {
+                    // System.out.println("Found dir: " + dir.getFileName());
+                    Files.delete(dir);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        }
+        catch (IOException e)
+        {
+            throw new RuntimeException("Error cleaning up ES server temp dir! : " + parentDirURI);
+        }
     }
 
     @Override
@@ -67,7 +103,6 @@ public class SearchClientServiceMockImpl implements SearchClientService
         return client("server1");
     }
 
-    // @Override
     @Override
     public void addNewNode(final String name)
     {
@@ -75,7 +110,6 @@ public class SearchClientServiceMockImpl implements SearchClientService
         startNode(name);
     }
 
-    // @Override
     @Override
     public void removeNode(final String nodeName)
     {

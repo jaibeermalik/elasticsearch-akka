@@ -48,4 +48,5 @@ class AppConfiguration
         return system.actorOf(Props.create(SetupIndexMasterActor.class, setupIndexService, sampleDataGeneratorService, indexProductData)
                 .withDispatcher("setupIndexMasterActorDispatch"), "setupIndexMasterActor");
     }
+    
 }

@@ -17,8 +17,9 @@
 
 
 	<context:annotation-config />
+	
 	<!-- 
-	<bean class="org.jai.search.actors.AppConfiguration"/>
+	<bean class="org.jai.search.actors.AppConfigurationScala"/>
 	 
 	 <bean name="actorSystemScala" class="org.jai.search.actors.AppConfigurationScala" init-method="org.jai.search.actors.AppConfigurationScala.actorSystemScala">
 	</bean>

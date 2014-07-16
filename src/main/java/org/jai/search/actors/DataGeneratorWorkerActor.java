@@ -70,14 +70,19 @@ public class DataGeneratorWorkerActor extends UntypedActor
     {
         // Before starting data generation, send how much data will be generated, which is size.
         getSender().tell(Integer.valueOf(size), getSelf());
-        // LOG.debug("Generating data for IndexDocumentTypeMessageVO: {}, for size: {}", new Object[]{indexDocumentTypeMessageVO, size});
-        for (int i = 1; i <= size; i++)
-        {
-            final IndexDocumentVO indexDocumentVO = new IndexDocumentVO().config(indexDocumentTypeMessageVO.getConfig())
-                    .documentType(indexDocumentTypeMessageVO.getIndexDocumentType())
-                    .newIndexName(indexDocumentTypeMessageVO.getNewIndexName()).documentId(Long.valueOf(i));
-            getSender().tell(indexDocumentVO, getSelf());
-        }
+        
+//        getSender().tell()
+//        IntStream.range(1, size +1).parallel().forEach(i -> getSender().tell(new IndexDocumentVO().config(indexDocumentTypeMessageVO.getConfig())
+//                .documentType(indexDocumentTypeMessageVO.getIndexDocumentType())
+//                .newIndexName(indexDocumentTypeMessageVO.getNewIndexName()).documentId(Long.valueOf(i)), getSelf()));
+         LOG.debug("Generating data for IndexDocumentTypeMessageVO: {}, for size: {}", new Object[]{indexDocumentTypeMessageVO, size});
+         for (int i = 1; i <= size; i++)
+         {
+         final IndexDocumentVO indexDocumentVO = new IndexDocumentVO().config(indexDocumentTypeMessageVO.getConfig())
+         .documentType(indexDocumentTypeMessageVO.getIndexDocumentType())
+         .newIndexName(indexDocumentTypeMessageVO.getNewIndexName()).documentId(Long.valueOf(i));
+         getSender().tell(indexDocumentVO, getSelf());
+         }
     }
 
     @Override
